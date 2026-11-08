@@ -12,7 +12,7 @@ T=lambda name:round(shots[name]['start'],6)
 B=T('02_spawn');GROW=T('22_growth');SILENCE=T('25_silence');REVEAL=T('26_world');LOGO=T('27_logo');END=T('28_end')
 SR=48000;SECONDS=cursor;N=round(SR*SECONDS);FF=imageio_ffmpeg.get_ffmpeg_exe()
 rng=np.random.default_rng(80271)
-music=np.zeros((N,2),np.float32);sfx=np.zeros_like(music);cache={};events=[]
+music=np.zeros((N,2),np.float32);sfx=np.zeros_like(music);cache={};events=[];music_events=[]
 def midi(name):
  return {'C':0,'D':2,'E':4,'F':5,'G':7,'A':9,'B':11}[name[0]]+12*(int(name[-1])+1)+(1 if '#' in name else 0)
 def load(instrument,name):
@@ -37,7 +37,7 @@ def note(at,pitch,duration=1.4,gain=.1,instrument='piano',pan=0,soft=False):
  if not len(data):return
  attack=(.65 if soft else .009) if instrument=='piano' else (.75 if soft else .09);release=min(.45,duration*.35);ts=np.arange(length)/SR
  env=np.minimum(1,ts/attack)*np.minimum(1,np.maximum(0,(length/SR-ts)/release));data*=env
- place(music,at,data,gain,pan)
+ place(music,at,data,gain,pan);music_events.append({'time':round(at,6),'pitch':pitch,'gain':round(gain,5),'instrument':instrument})
 def click(at,weight=.04,kind='tick'):
  duration=.045 if kind=='tick' else .55;n=int(SR*duration);t=np.arange(n)/SR;noise=rng.standard_normal(n).astype(np.float32)
  if kind=='tick':data=noise*np.minimum(1,t/.001)*np.exp(-t/.004);data[1:]=.5*data[1:]+.5*data[:-1]
@@ -60,7 +60,7 @@ for half,at in enumerate(np.arange(B,SILENCE-1.2,.3)):
  # One quarter-note pickup places the growth reveal on a harmonic downbeat.
  beat=half//2+1;chord=chords[(beat//8)%4]
  density=float(np.clip((at-(GROW-1.2))/1.2,0,1))
- gain=.085+.025*float(np.clip((at-B)/48,0,1))+.015*density
+ gain=(.085+.025*float(np.clip((at-B)/48,0,1))+.015*density)*(1.12 if beat%2==0 else .92)
  if half%2==0:
   pitch=chord[[2,1,3,2,0,2,1,3][beat%8]]+12
   note(float(at),pitch,1.65,gain,pan=(-.22,.17)[beat%2])
@@ -73,17 +73,21 @@ for half,at in enumerate(np.arange(B,SILENCE-1.2,.3)):
  if density>.1 and at<SILENCE-1.8:click(float(at),.008*density)
 
 def action(name,offset=0):return T(name)+shots[name].get('lead',0)+offset
-anchors={'02_spawn':[0,.6,1.2,1.8,2.4],'04_physics_control':[1.65],'06_link':[.6],'09_folder':[0],'10_editor':[.6,1.2,1.8,2.4],'12_kanban':[.6,1.8],'15_pin':[0],'17_folder_navigation':[.6,2.1]}
+E=lambda name,event:shots[name]['events'][event]
+anchors={'02_spawn':[0,.6,1.2,1.8,2.4],'04_physics_control':[E('04_physics_control','open')],'06_link':[E('06_link','connect')],'09_folder':[0],'10_editor':[.6,1.2,1.8,2.4],'12_kanban':[E('12_kanban','done')],'15_pin':[0],'17_folder_navigation':[E('17_folder_navigation','first'),E('17_folder_navigation','second')]}
 for name,points in anchors.items():
  for point in points:click(action(name,point),.021)
-for i in range(6):click(action('14_search',.3+i*.15),.014)
-click(action('14_search',1.5),.025)
+for i in range(6):click(action('14_search',(i+1)*E('14_search','typing')),.014)
+click(action('14_search',E('14_search','select')),.025)
 for point in [.3,1.2]:click(action('03_living_drag',point),.022,'air')
+# Movement is a sweep, not a button press. Its noise peak follows peak velocity.
+click(action('12_kanban',E('12_kanban','move')),.026,'air')
 for i in range(6):click(action('11_customization',i*.6),.017)
-click(action('10_suggestions',1.2),.024)
-for name in ['06_link','08_lasso','17_folder_navigation']:click(action(name,0),.02,'air')
-for point in [.6,1.8,3.6]:click(action('21_sync',point),.017)
-click(action('21_sync',3.9),.018,'air')
+for point in E('13_themes','changes')[1:]:click(action('13_themes',point),.015)
+click(action('10_suggestions',E('10_suggestions','accept')),.024)
+for name in ['06_link','08_lasso']:click(action(name,0),.02,'air')
+for event in ['qr','verify']:click(action('21_sync',E('21_sync',event)),.017)
+click(action('21_sync',E('21_sync','transfer')),.018,'air')
 
 # Seamless musical release. Keep a low spatial tail through the brief black.
 release_start=SILENCE-1.4
@@ -115,5 +119,6 @@ def save(name,data):
 peak=float(np.max(np.abs(music+sfx)));gain=.85/max(.85,peak);music*=gain;sfx*=gain
 save('music.wav',music);save('foley.wav',sfx);save('mix.wav',music+sfx)
 subprocess.run([FF,'-y','-v','error','-i',str(OUT/'mix.wav'),'-af','loudnorm=I=-18:TP=-1.8:LRA=12','-ar',str(SR),str(OUT/'master.wav')],check=True)
-(ROOT/'cue-sheet.json').write_text(json.dumps({'bpm':100,'quarter':.6,'growth':GROW,'release':[release_start,REVEAL],'logo':LOGO,'author':END+1.6,'foley':events},ensure_ascii=False,indent=2),encoding='utf-8')
+(ROOT/'cue-sheet.json').write_text(json.dumps({'bpm':100,'quarter':.6,'meter':'2/4','bar':1.2,'growth':GROW,'release':[release_start,REVEAL],'logo':LOGO,'author':END+1.6,'foley':events},ensure_ascii=False,indent=2),encoding='utf-8')
+(OUT/'music-events.json').write_text(json.dumps(music_events,indent=2),encoding='utf-8')
 print('Score and separate stems rendered:',OUT)

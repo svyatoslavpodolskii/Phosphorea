@@ -18,15 +18,16 @@ try{
  if(process.argv.includes('--stills')){
   const samples=[];for(const s of timeline.shots){const at=s.start+s.duration*.57;await page.evaluate(t=>window.drawTime(t),at);const png=await page.locator('canvas').screenshot();const path=resolve(out,s.id+'.png');await writeFile(path,png);samples.push({id:s.id,time:at,path});}
   for(const [id,offsets] of Object.entries({'02_spawn':[0,.3,2.9],'03_living_drag':[.5,1.65],'08_lasso':[1.55],'14_search':[.85,2.7,4.1],'17_folder_navigation':[.9,3.3],'22_growth':[0,.6,2.4,5.9],'26_world':[.2,4.35,5.99],'27_logo':[0,2.39],'28_end':[.01,4.7],'29_github':[2.2]})){
-   const shot=timeline.shots.find(s=>s.id===id);for(const offset of offsets){const at=shot.start+offset;await page.evaluate(t=>window.drawTime(t),at);await writeFile(resolve(out,`check-${id}-${offset}.png`),await page.locator('canvas').screenshot());}
+   const shot=timeline.shots.find(s=>s.id===id);for(const offset of offsets){const at=shot.start+Math.min(offset,shot.duration-1/60);await page.evaluate(t=>window.drawTime(t),at);await writeFile(resolve(out,`check-${id}-${offset}.png`),await page.locator('canvas').screenshot());}
   }
   const seamChecks=await page.evaluate(()=>{const world=window.timeline.shots.find(s=>s.id==='26_world'),logo=window.timeline.shots.find(s=>s.id==='27_logo');const stats=t=>{window.drawTime(t);const d=document.querySelector('canvas').getContext('2d').getImageData(0,0,1080,1920).data;let max=0;for(let i=0;i<d.length;i+=4)max=Math.max(max,d[i],d[i+1],d[i+2]);return max;};return {worldLastMax:stats(world.start+world.duration-1/60),logoFirstMax:stats(logo.start),universeNodes:window.universeNodeCount};});
   if(seamChecks.worldLastMax>1||seamChecks.logoFirstMax!==0)throw Error('Fade to black seam failed '+JSON.stringify(seamChecks));
   await writeFile(resolve(out,'seam-checks.json'),JSON.stringify(seamChecks,null,2));
   await writeFile(resolve(out,'stills.json'),JSON.stringify(samples,null,2));console.log('Rendered',samples.length,'shot proofs.');
  }else{
+  execFileSync('python',[resolve(root,'check-timing.py')],{stdio:'inherit'});
   const ffmpeg=execFileSync('python',['-c','import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())'],{encoding:'utf8',env:{...process.env,PYTHONIOENCODING:'utf-8'}}).trim();
-  const target=resolve(out,'Phosphorea_Kinetic_Film_v8_1080x1920_60fps.mp4');
+  const target=resolve(out,'Phosphorea_Kinetic_Film_v9_1080x1920_60fps.mp4');
   // A score rebuild must not truncate audio being read by an active encode.
   const audioSnapshot=resolve(out,'render-audio.wav');await copyFile(resolve(out,'master.wav'),audioSnapshot);
   encoder=spawn(ffmpeg,['-y','-v','error','-f','image2pipe','-vcodec','mjpeg','-framerate',String(timeline.fps),'-i','pipe:0','-i',audioSnapshot,'-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-colorspace','bt709','-color_primaries','bt709','-color_trc','bt709','-c:a','aac','-b:a','256k','-movflags','+faststart','-shortest','-metadata','title=Phosphorea — от одной мысли до целого мира','-metadata','artist=Svyatoslav Podolskii',target],{stdio:['pipe','inherit','inherit']});

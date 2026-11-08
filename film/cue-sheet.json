@@ -1,28 +1,70 @@
 {
   "bpm": 100,
   "quarter": 0.6,
-  "growth": 68.4,
+  "meter": "2/4",
+  "bar": 1.2,
+  "growth": 66.0,
   "release": [
-    77.8,
-    81.0
+    75.39999999999999,
+    78.6
   ],
-  "logo": 87.0,
-  "author": 91.0,
+  "logo": 84.6,
+  "author": 88.6,
   "foley": [
     {
-      "time": 67.5,
+      "time": 65.1,
       "kind": "tick",
       "gain": 0.001999999999999981
     },
     {
+      "time": 65.4,
+      "kind": "tick",
+      "gain": 0.004000000000000057
+    },
+    {
+      "time": 65.7,
+      "kind": "tick",
+      "gain": 0.006000000000000038
+    },
+    {
+      "time": 66.0,
+      "kind": "tick",
+      "gain": 0.008
+    },
+    {
+      "time": 66.3,
+      "kind": "tick",
+      "gain": 0.008
+    },
+    {
+      "time": 66.6,
+      "kind": "tick",
+      "gain": 0.008
+    },
+    {
+      "time": 66.9,
+      "kind": "tick",
+      "gain": 0.008
+    },
+    {
+      "time": 67.2,
+      "kind": "tick",
+      "gain": 0.008
+    },
+    {
+      "time": 67.5,
+      "kind": "tick",
+      "gain": 0.008
+    },
+    {
       "time": 67.8,
       "kind": "tick",
-      "gain": 0.003999999999999962
+      "gain": 0.008
     },
     {
       "time": 68.1,
       "kind": "tick",
-      "gain": 0.005999999999999943
+      "gain": 0.008
     },
     {
       "time": 68.4,
@@ -135,46 +177,6 @@
       "gain": 0.008
     },
     {
-      "time": 75.0,
-      "kind": "tick",
-      "gain": 0.008
-    },
-    {
-      "time": 75.3,
-      "kind": "tick",
-      "gain": 0.008
-    },
-    {
-      "time": 75.6,
-      "kind": "tick",
-      "gain": 0.008
-    },
-    {
-      "time": 75.9,
-      "kind": "tick",
-      "gain": 0.008
-    },
-    {
-      "time": 76.2,
-      "kind": "tick",
-      "gain": 0.008
-    },
-    {
-      "time": 76.5,
-      "kind": "tick",
-      "gain": 0.008
-    },
-    {
-      "time": 76.8,
-      "kind": "tick",
-      "gain": 0.008
-    },
-    {
-      "time": 77.1,
-      "kind": "tick",
-      "gain": 0.008
-    },
-    {
       "time": 6.6,
       "kind": "tick",
       "gain": 0.021
@@ -200,7 +202,7 @@
       "gain": 0.021
     },
     {
-      "time": 40.05,
+      "time": 38.4,
       "kind": "tick",
       "gain": 0.021
     },
@@ -210,7 +212,17 @@
       "gain": 0.021
     },
     {
-      "time": 19.2,
+      "time": 18.0,
+      "kind": "tick",
+      "gain": 0.021
+    },
+    {
+      "time": 21.0,
+      "kind": "tick",
+      "gain": 0.021
+    },
+    {
+      "time": 21.6,
       "kind": "tick",
       "gain": 0.021
     },
@@ -225,39 +237,49 @@
       "gain": 0.021
     },
     {
-      "time": 23.4,
-      "kind": "tick",
-      "gain": 0.021
-    },
-    {
-      "time": 24.0,
-      "kind": "tick",
-      "gain": 0.021
-    },
-    {
       "time": 30.0,
       "kind": "tick",
       "gain": 0.021
     },
     {
-      "time": 31.2,
+      "time": 52.8,
       "kind": "tick",
       "gain": 0.021
     },
     {
-      "time": 53.4,
+      "time": 55.2,
       "kind": "tick",
       "gain": 0.021
     },
     {
-      "time": 57.0,
+      "time": 56.4,
       "kind": "tick",
       "gain": 0.021
     },
     {
-      "time": 58.5,
+      "time": 48.15,
       "kind": "tick",
-      "gain": 0.021
+      "gain": 0.014
+    },
+    {
+      "time": 48.3,
+      "kind": "tick",
+      "gain": 0.014
+    },
+    {
+      "time": 48.45,
+      "kind": "tick",
+      "gain": 0.014
+    },
+    {
+      "time": 48.6,
+      "kind": "tick",
+      "gain": 0.014
+    },
+    {
+      "time": 48.75,
+      "kind": "tick",
+      "gain": 0.014
     },
     {
       "time": 48.9,
@@ -265,32 +287,7 @@
       "gain": 0.014
     },
     {
-      "time": 49.05,
-      "kind": "tick",
-      "gain": 0.014
-    },
-    {
       "time": 49.2,
-      "kind": "tick",
-      "gain": 0.014
-    },
-    {
-      "time": 49.35,
-      "kind": "tick",
-      "gain": 0.014
-    },
-    {
-      "time": 49.5,
-      "kind": "tick",
-      "gain": 0.014
-    },
-    {
-      "time": 49.65,
-      "kind": "tick",
-      "gain": 0.014
-    },
-    {
-      "time": 50.1,
       "kind": "tick",
       "gain": 0.025
     },
@@ -303,6 +300,21 @@
       "time": 12.0,
       "kind": "air",
       "gain": 0.022
+    },
+    {
+      "time": 28.8,
+      "kind": "air",
+      "gain": 0.026
+    },
+    {
+      "time": 32.4,
+      "kind": "tick",
+      "gain": 0.017
+    },
+    {
+      "time": 33.0,
+      "kind": "tick",
+      "gain": 0.017
     },
     {
       "time": 33.6,
@@ -325,17 +337,22 @@
       "gain": 0.017
     },
     {
-      "time": 36.0,
+      "time": 43.2,
       "kind": "tick",
-      "gain": 0.017
+      "gain": 0.015
     },
     {
-      "time": 36.6,
+      "time": 44.4,
       "kind": "tick",
-      "gain": 0.017
+      "gain": 0.015
     },
     {
-      "time": 27.0,
+      "time": 45.6,
+      "kind": "tick",
+      "gain": 0.015
+    },
+    {
+      "time": 26.4,
       "kind": "tick",
       "gain": 0.024
     },
@@ -345,32 +362,22 @@
       "gain": 0.02
     },
     {
-      "time": 17.4,
+      "time": 16.8,
       "kind": "air",
       "gain": 0.02
     },
     {
-      "time": 56.4,
-      "kind": "air",
-      "gain": 0.02
-    },
-    {
-      "time": 61.8,
+      "time": 60.0,
       "kind": "tick",
       "gain": 0.017
     },
     {
-      "time": 63.0,
+      "time": 61.2,
       "kind": "tick",
       "gain": 0.017
     },
     {
-      "time": 64.8,
-      "kind": "tick",
-      "gain": 0.017
-    },
-    {
-      "time": 65.1,
+      "time": 62.4,
       "kind": "air",
       "gain": 0.018
     }

@@ -3,7 +3,7 @@
   "width": 1080,
   "height": 1920,
   "fps": 60,
-  "duration": 96.6,
+  "duration": 94.2,
   "shots": [
     {
       "id": "00_empty",
@@ -74,33 +74,36 @@
       "id": "06_link",
       "module": "link",
       "start": 14.4,
-      "duration": 1.8,
-      "sourceDuration": 1.8,
+      "duration": 1.2,
+      "sourceDuration": 1.2,
       "lead": 0,
-      "cue": ""
+      "cue": "",
+      "events": {
+        "connect": 0.6
+      }
     },
     {
       "id": "title_08_lasso",
       "module": "title",
       "title": "Объединяй",
       "variant": "",
-      "start": 16.2,
+      "start": 15.6,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "08_lasso",
       "module": "lasso",
-      "start": 17.4,
-      "duration": 1.8,
-      "sourceDuration": 1.8,
+      "start": 16.8,
+      "duration": 1.2,
+      "sourceDuration": 1.2,
       "lead": 0,
       "cue": ""
     },
     {
       "id": "09_folder",
       "module": "folder",
-      "start": 19.2,
+      "start": 18.0,
       "duration": 1.2,
       "sourceDuration": 1.2,
       "lead": 0,
@@ -111,16 +114,16 @@
       "module": "title",
       "title": "Записывай",
       "variant": "",
-      "start": 20.4,
+      "start": 19.2,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "10_editor",
       "module": "editor",
-      "start": 21.6,
-      "duration": 3,
-      "sourceDuration": 3,
+      "start": 20.4,
+      "duration": 3.6,
+      "sourceDuration": 3.6,
       "lead": 0,
       "cue": ""
     },
@@ -129,50 +132,57 @@
       "module": "title",
       "title": "Замечай связи",
       "variant": "",
-      "start": 24.6,
+      "start": 24.0,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "10_suggestions",
       "module": "suggestions",
-      "start": 25.8,
+      "start": 25.2,
       "duration": 2.4,
       "sourceDuration": 2.4,
       "lead": 0,
-      "cue": ""
+      "cue": "",
+      "events": {
+        "accept": 1.2
+      }
     },
     {
       "id": "title_12_kanban",
       "module": "title",
       "title": "Действуй",
       "variant": "",
-      "start": 28.2,
+      "start": 27.6,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "12_kanban",
       "module": "kanban",
-      "start": 29.4,
-      "duration": 3,
-      "sourceDuration": 3,
+      "start": 28.8,
+      "duration": 2.4,
+      "sourceDuration": 2.4,
       "lead": 0,
-      "cue": ""
+      "cue": "",
+      "events": {
+        "move": 0,
+        "done": 1.2
+      }
     },
     {
       "id": "title_11_customization",
       "module": "title",
       "title": "Выбирай",
       "variant": "",
-      "start": 32.4,
+      "start": 31.2,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "11_customization",
       "module": "customization",
-      "start": 33.6,
+      "start": 32.4,
       "duration": 3.6,
       "sourceDuration": 3.6,
       "lead": 0,
@@ -183,80 +193,88 @@
       "module": "title",
       "title": "Настраивай",
       "variant": "",
-      "start": 37.2,
+      "start": 36.0,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "04_physics_control",
       "module": "physics",
-      "start": 38.4,
-      "duration": 1.8,
+      "start": 37.2,
+      "duration": 3.6,
       "variant": "control",
-      "sourceDuration": 1.8,
+      "sourceDuration": 3.6,
       "lead": 0,
-      "cue": ""
-    },
-    {
-      "id": "05_physics_world",
-      "module": "physics",
-      "start": 40.2,
-      "duration": 1.2,
-      "sourceDuration": 1.2,
-      "lead": 0,
-      "cue": ""
+      "cue": "",
+      "events": {
+        "open": 1.2,
+        "slider": 1.8,
+        "inertia": 2.4
+      }
     },
     {
       "id": "title_13_themes",
       "module": "title",
       "title": "Меняй настроение",
       "variant": "",
-      "start": 41.4,
+      "start": 40.8,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "13_themes",
       "module": "themes",
-      "start": 42.6,
+      "start": 42.0,
       "duration": 4.8,
       "sourceDuration": 4.8,
       "lead": 0,
-      "cue": ""
+      "cue": "",
+      "events": {
+        "changes": [
+          0,
+          1.2,
+          2.4,
+          3.6
+        ]
+      }
     },
     {
       "id": "title_14_search",
       "module": "title",
       "title": "Находи",
       "variant": "",
-      "start": 47.4,
+      "start": 46.8,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "14_search",
       "module": "search",
-      "start": 48.6,
+      "start": 48.0,
       "duration": 3.6,
       "sourceDuration": 3.6,
       "lead": 0,
-      "cue": ""
+      "cue": "",
+      "events": {
+        "typing": 0.15,
+        "select": 1.2
+      }
     },
     {
       "id": "title_15_pin",
       "module": "title",
       "title": "Закрепляй",
       "variant": "",
-      "start": 52.2,
+      "start": 51.6,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "15_pin",
       "module": "pin",
-      "start": 53.4,
-      "duration": 1.8,
-      "sourceDuration": 1.8,
+      "start": 52.8,
+      "duration": 1.2,
+      "sourceDuration": 1.2,
       "lead": 0,
       "cue": ""
     },
@@ -265,19 +283,23 @@
       "module": "title",
       "title": "Погружайся",
       "variant": "",
-      "start": 55.2,
+      "start": 54.0,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "17_folder_navigation",
       "module": "folder",
-      "start": 56.4,
-      "duration": 3.6,
+      "start": 55.2,
+      "duration": 2.4,
       "variant": "navigate",
-      "sourceDuration": 3.6,
+      "sourceDuration": 2.4,
       "lead": 0,
-      "cue": ""
+      "cue": "",
+      "events": {
+        "first": 0,
+        "second": 1.2
+      }
     },
     {
       "id": "title_21_sync",
@@ -285,28 +307,34 @@
       "title": "Продолжай",
       "duration": 1.2,
       "sourceDuration": 1.2,
-      "start": 60.0
+      "start": 57.6
     },
     {
       "id": "21_sync",
       "module": "sync",
       "duration": 6,
       "sourceDuration": 6,
-      "start": 61.2
+      "start": 58.8,
+      "events": {
+        "qr": 1.2,
+        "verify": 2.4,
+        "transfer": 3.6,
+        "caption": 4.8
+      }
     },
     {
       "id": "title_22_growth",
       "module": "title",
       "title": "Твори",
       "variant": "",
-      "start": 67.2,
+      "start": 64.8,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "22_growth",
       "module": "growth",
-      "start": 68.4,
+      "start": 66.0,
       "duration": 6,
       "sourceDuration": 6,
       "lead": 0,
@@ -317,14 +345,14 @@
       "module": "title",
       "title": "По-своему",
       "variant": "",
-      "start": 74.4,
+      "start": 72.0,
       "duration": 1.2,
       "sourceDuration": 1.2
     },
     {
       "id": "24_acceleration",
       "module": "growth",
-      "start": 75.6,
+      "start": 73.2,
       "duration": 3.6,
       "variant": "rapid",
       "sourceDuration": 3.6,
@@ -334,7 +362,7 @@
     {
       "id": "25_silence",
       "module": "genesis",
-      "start": 79.2,
+      "start": 76.8,
       "duration": 1.8,
       "variant": "black",
       "sourceDuration": 1.8,
@@ -344,7 +372,7 @@
     {
       "id": "26_world",
       "module": "world",
-      "start": 81.0,
+      "start": 78.6,
       "duration": 6,
       "sourceDuration": 6,
       "lead": 0,
@@ -353,7 +381,7 @@
     {
       "id": "27_logo",
       "module": "logo",
-      "start": 87.0,
+      "start": 84.6,
       "duration": 2.4,
       "sourceDuration": 2.4,
       "lead": 0,
@@ -362,7 +390,7 @@
     {
       "id": "28_end",
       "module": "end",
-      "start": 89.4,
+      "start": 87.0,
       "duration": 4.8,
       "sourceDuration": 4.8,
       "lead": 0,
@@ -371,9 +399,12 @@
     {
       "id": "29_github",
       "module": "availability",
-      "start": 94.2,
+      "start": 91.8,
       "duration": 2.4,
       "sourceDuration": 2.4
     }
-  ]
+  ],
+  "beat": 0.6,
+  "bar": 1.2,
+  "meter": "2/4"
 }
