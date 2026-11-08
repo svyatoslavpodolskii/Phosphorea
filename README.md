@@ -12,8 +12,8 @@
 
 [Вертикальный тизер со сценой синхронизации](https://github.com/svyatoslavpodolskii/Phosphorea/releases/download/v0.9.0/Phosphorea_Kinetic_Film_v6_1080x1920_60fps.mp4)
 
-**[Движок ролика и будущих тизеров](film/README.md)** — отдельный самостоятельный
-пакет в `film/`. MP4, WAV, превью и установленные зависимости в Git не попадают.
+**[Исходники ролика](film/README.md)** хранятся в `film/` вместе с проектом.
+Готовое видео доступно по ссылке выше.
 
 Local-first PWA: одна карта заметок, людей, проектов и задач. Svelte + TypeScript + Vite. Данные — SQLite WASM в Worker, официальный OPFS SAH pool VFS. Без аккаунта и сервера данных.
 
