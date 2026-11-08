@@ -4,7 +4,7 @@ export type SoundCue='tap'|'detent'|'hold'|'pulse'|'drop'|'move'|'lasso'|'open';
 const rooms=new Map<boolean,ConvolverNode>();
 function room(ctx:AudioContext,originalClick=false){let node=rooms.get(originalClick);if(!node){node=ctx.createConvolver();node.normalize=false;node.buffer=roomImpulse(ctx,originalClick);const wet=ctx.createGain();wet.gain.value=.17;node.connect(wet).connect(ctx.destination);rooms.set(originalClick,node);}return node;}
 let muted=true;try{muted=localStorage.getItem('phosphora:sound-muted')!=='false';}catch{}
-let enabled=false,volume=.35,context:AudioContext|undefined,motion:MotionAudio|undefined,motionHeld=false,lastZoom=-Infinity;
+let enabled=false,volume=1,context:AudioContext|undefined,motion:MotionAudio|undefined,motionHeld=false,lastZoom=-Infinity;
 export function motionSound(kind:MotionKind,speed:number,direction=1){if(!context||context.state!=='running'||muted||!enabled||document.hidden)return;const now=performance.now();if(kind==='zoom')lastZoom=now;else if(now-lastZoom<120)return;try{motion??=new MotionAudio(context);motion.setHeld(motionHeld);motion.update(kind,speed,volume,direction);}catch{}}
 export function stopMotionSound(){motionHeld=false;motion?.setHeld(false);motion?.stop();}
 const last=new Map<SoundCue,number>();
@@ -20,14 +20,15 @@ export function setMuted(value:boolean){muted=value;try{localStorage.setItem('ph
 /** Mechanical transients and a diffused, non-tonal pressure wave. */
 export function contactSamples(cue:SoundCue,sampleRate:number){
  if(cue==='move'||cue==='lasso')return new Float32Array(0);
- const wave=cue==='hold'||cue==='pulse',duration=wave?1.25:cue==='detent'?.024:.045,samples=new Float32Array(Math.ceil(sampleRate*duration));
+ const wave=cue==='hold'||cue==='pulse',duration=wave?1.9:cue==='detent'?.024:.045,samples=new Float32Array(Math.ceil(sampleRate*duration));
+ const waveAlpha=1-Math.exp(-2*Math.PI*1050/sampleRate),waveSlowAlpha=1-Math.exp(-2*Math.PI*210/sampleRate);
  let seed=cue==='detent'?71:41,low=0,waveLow=0,waveSlow=0,tapLow=0,tapSlow=0;
  for(let i=0;i<samples.length;i++){const t=i/sampleRate;
   if(wave){
    seed=(seed*1664525+1013904223)>>>0;const noise=seed/4294967296*2-1;
-   waveLow+=(1-Math.exp(-2*Math.PI*1050/sampleRate))*(noise-waveLow);waveSlow+=(1-Math.exp(-2*Math.PI*210/sampleRate))*(noise-waveSlow);
-   const envelope=(1-Math.exp(-t/.055))*Math.exp(-t/.22)*(1-t/duration)**2;
-   samples[i]=(waveLow-waveSlow)*envelope*(cue==='pulse'?.17:.26);
+   waveLow+=waveAlpha*(noise-waveLow);waveSlow+=waveSlowAlpha*(noise-waveSlow);
+   const attack=Math.min(1,t/.55),envelope=attack*attack*(3-2*attack)*Math.exp(-t/.65)*(1-t/duration)**2;
+   samples[i]=(waveLow-waveSlow)*envelope*(cue==='pulse'?.075:.12);
   }
   else{
    // A mechanical escapement: two tiny broadband contacts with a damped metal
@@ -42,7 +43,7 @@ export async function previewSound(cue:SoundCue){await unlock();playSound(cue);}
 export async function prepareSound(){await unlock();}
 export function playSound(cue:SoundCue){const now=performance.now();if(cue==='move'||cue==='lasso')return;if(!context||context.state!=='running'||muted||!enabled||!volume||document.hidden||now-(last.get(cue)??-Infinity)<soundInterval(cue))return;last.set(cue,now);
  try{let buffer=buffers.get(cue);if(!buffer){const samples=contactSamples(cue,context.sampleRate);buffer=context.createBuffer(1,samples.length,context.sampleRate);buffer.getChannelData(0).set(samples);buffers.set(cue,buffer);}
-  if(voices.size>=3)return;const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=volume*(cue==='pulse'?.65:1);source.connect(gain).connect(context.destination);const send=context.createGain();send.gain.value=cue==='hold'||cue==='pulse'?2.5:cue==='detent'?1:.3;gain.connect(send).connect(room(context,cue==='detent'));voices.add(source);source.onended=()=>{voices.delete(source);source.disconnect();gain.disconnect();send.disconnect();};source.start();
+  if(voices.size>=3)return;const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;const wave=cue==='hold'||cue==='pulse';gain.gain.value=volume*(cue==='detent'?.8:cue==='pulse'?.65:1);const dry=context.createGain();dry.gain.value=wave?.38:1;source.connect(gain).connect(dry).connect(context.destination);const send=context.createGain();send.gain.value=wave?3.6:cue==='detent'?.45:.3;gain.connect(send).connect(room(context,cue==='detent'));voices.add(source);source.onended=()=>{voices.delete(source);source.disconnect();gain.disconnect();dry.disconnect();send.disconnect();};source.start();
  }catch{}
 }
 export function installSoundFeedback(){let start:{id:number;x:number;y:number;time:number;canvas:boolean;moved:boolean}|null=null;let pointerContact=-Infinity;const canvasPointers=new Set<number>();
@@ -58,4 +59,4 @@ export function installSoundFeedback(){let start:{id:number;x:number;y:number;ti
  document.addEventListener('visibilitychange',visibility);document.addEventListener('pointerdown',down,true);document.addEventListener('pointerup',up,true);document.addEventListener('pointermove',move,true);document.addEventListener('pointercancel',cancel,true);document.addEventListener('click',click,true);document.addEventListener('change',change,true);document.addEventListener('keydown',key,true);
  return()=>{stopMotionSound();document.removeEventListener('visibilitychange',visibility);document.removeEventListener('pointerdown',down,true);document.removeEventListener('pointerup',up,true);document.removeEventListener('pointermove',move,true);document.removeEventListener('pointercancel',cancel,true);document.removeEventListener('click',click,true);document.removeEventListener('change',change,true);document.removeEventListener('keydown',key,true);};
 }
-export const soundPlugin:Plugin={manifest:{id:'builtin.sound',name:'Звуковой отклик',description:'Механические щелчки, глубокие волны и тихое пространственное движение. Звук включается кнопкой на карте.',version:'1.0.0',apiVersion:1,permissions:['settings'],settings:[{key:'volume',label:'Громкость отклика',type:'range',min:0,max:1,step:.05,default:.35}]},async activate(api){let alive=true,revision=0;async function refresh(){const version=++revision,v=await api.settings.get<number>('volume');if(alive&&version===revision){volume=typeof v==='number'&&Number.isFinite(v)?Math.max(0,Math.min(1,v)):.35;enabled=true;changed();}}const off=api.events.on('preferences:plugin-setting',e=>e.plugin==='builtin.sound'?refresh():undefined);try{await refresh();}catch(error){off();throw error;}return()=>{alive=false;revision++;enabled=false;stopMotionSound();off();for(const voice of voices)try{voice.stop();}catch{}changed();};}};
+export const soundPlugin:Plugin={manifest:{id:'builtin.sound',name:'Звуковой отклик',description:'Механические щелчки, глубокие волны и тихое пространственное движение. Звук включается кнопкой на карте.',version:'1.0.0',apiVersion:1,permissions:['settings'],settings:[{key:'volume',label:'Громкость отклика',type:'range',min:0,max:1,step:.05,default:1}]},async activate(api){let alive=true,revision=0;async function refresh(){const version=++revision,v=await api.settings.get<number>('volume');if(alive&&version===revision){volume=typeof v==='number'&&Number.isFinite(v)?Math.max(0,Math.min(1,v)):1;enabled=true;changed();}}const off=api.events.on('preferences:plugin-setting',e=>e.plugin==='builtin.sound'?refresh():undefined);try{await refresh();}catch(error){off();throw error;}return()=>{alive=false;revision++;enabled=false;stopMotionSound();off();for(const voice of voices)try{voice.stop();}catch{}changed();};}};

@@ -14,7 +14,7 @@
    await prepareSound();if(version!==revision)return;
    const start=performance.now();
    const step=()=>{if(version!==revision)return;const elapsed=performance.now()-start;if(elapsed>1200){stopMotionSound();playing='';return;}motionSound(cue,Math.sin(elapsed/1200*Math.PI));timer=setTimeout(step,30);};step();
-  }else{await previewSound(cue);if(version===revision)timer=setTimeout(()=>playing='',650);}
+  }else{await previewSound(cue);if(version===revision)timer=setTimeout(()=>playing='',cue==='hold'||cue==='pulse'?1900:650);}
  }
  onDestroy(()=>{revision++;clearTimeout(timer);stopMotionSound();});
 </script>

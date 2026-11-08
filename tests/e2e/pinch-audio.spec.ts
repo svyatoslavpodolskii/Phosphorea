@@ -8,5 +8,5 @@ test('two fingers emit zoom material without alternating loud pan sources',async
  await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Опора',pinned:true})],links:[]});await page.waitForTimeout(800);await page.evaluate(()=>(window as any).__motionBands=[]);
  const cdp=await context.newCDPSession(page),touch=(type:string,points:{x:number;y:number;id:number}[])=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points.map(p=>({...p,radiusX:2,radiusY:2,force:1}))});
  await touch('touchStart',[{id:1,x:140,y:390},{id:2,x:250,y:450}]);for(let i=1;i<=8;i++)await touch('touchMove',[{id:1,x:140-i*5,y:390-i*2},{id:2,x:250+i*5,y:450+i*2}]);await touch('touchEnd',[]);
- await expect.poll(()=>page.evaluate(()=>(window as any).__motionBands.length)).toBeGreaterThan(0);expect(await page.evaluate(()=>(window as any).__motionBands.every((hz:number)=>hz===240))).toBe(true);
+ await expect.poll(()=>page.evaluate(()=>(window as any).__motionBands.length)).toBeGreaterThan(0);expect(await page.evaluate(()=>(window as any).__motionBands.every((hz:number)=>hz===200))).toBe(true);
 });

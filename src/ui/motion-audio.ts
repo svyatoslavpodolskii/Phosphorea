@@ -1,8 +1,8 @@
 export type MotionKind='zoom'|'pan'|'lasso';
 /** Different source materials, not the same white noise with three EQ presets. */
 export function motionSamples(kind:MotionKind,rate:number,channel=0){
- const length=Math.ceil(rate*1.5),overlap=Math.ceil(rate*.06),raw=new Float32Array(length+overlap);let seed=(kind==='pan'?179:kind==='zoom'?811:1373)+channel*97,low=0,slow=0;
- for(let i=0;i<raw.length;i++){seed=(seed*1664525+1013904223)>>>0;const white=seed/4294967296*2-1;low+= (kind==='zoom'?.075:kind==='lasso'?.35:.55)*(white-low);slow+=.014*(white-slow);raw[i]=kind==='pan'?(white-low)*.28:kind==='zoom'?(low-slow)*1.4:(low-slow)*.6;}
+ const grainStep=Math.max(1,Math.round(rate*.008)),length=Math.ceil(rate*1.5),overlap=Math.ceil(rate*.06),raw=new Float32Array(length+overlap);let seed=(kind==='pan'?179:kind==='zoom'?811:1373)+channel*97,low=0,slow=0,grain=.7,target=.7;
+ for(let i=0;i<raw.length;i++){seed=(seed*1664525+1013904223)>>>0;const white=seed/4294967296*2-1;low+= (kind==='zoom'?.075:kind==='lasso'?.35:.42)*(white-low);slow+=.014*(white-slow);if(i%grainStep===0)target=.25+.75*Math.abs(white);grain+=.004*(target-grain);raw[i]=kind==='pan'?((low-slow)*.6+(white-low)*.08)*grain:kind==='zoom'?(low-slow)*1.4:(low-slow)*.6;}
  const data=raw.slice(0,length);for(let i=0;i<overlap;i++){const t=i/(overlap-1),mix=t*t*(3-2*t);data[i]=raw[length+i]*(1-mix)+raw[i]*mix;}
  if(kind==='lasso')for(let i=0;i<length;i++)data[i]*=.7+.3*Math.sin(Math.PI*6*i/length+channel*.7)**2;
  return data;
@@ -16,7 +16,7 @@ export function roomImpulse(context:BaseAudioContext,originalClick=false){
 function hold(param:AudioParam,now:number){if(typeof param.cancelAndHoldAtTime==='function')param.cancelAndHoldAtTime(now);else{const value=param.value;param.cancelScheduledValues(now);param.setValueAtTime(value,now);}}
 export function motionParameters(kind:MotionKind,speed:number,direction=1){
  const intensity=Math.min(1,Math.max(0,Number.isFinite(speed)?speed:0));
- return {gain:Math.pow(intensity,.65)*(kind==='zoom'?.009:kind==='lasso'?.016:.021),frequency:kind==='zoom'?700+intensity*1500:kind==='lasso'?1500+intensity*750:4800+intensity*1200,high:kind==='zoom'?240:kind==='lasso'?900:2200,wet:kind==='zoom'?.38:kind==='lasso'?.26:.17,attack:kind==='zoom'?.12:.14,release:kind==='zoom'?.22:.20,pan:kind==='zoom'?Math.sign(direction)*.12:0};
+ return {gain:Math.pow(intensity,.65)*(kind==='zoom'?.018:kind==='lasso'?.016:.018),frequency:kind==='zoom'?420+intensity*600:kind==='lasso'?1500+intensity*750:4200+intensity*800,high:kind==='zoom'?200:kind==='lasso'?900:1650,wet:kind==='zoom'?.38:kind==='lasso'?.26:.035,attack:.12,release:kind==='zoom'?.22:.16,pan:kind==='zoom'?Math.sign(direction)*.12:0};
 }
 /** One loop per gesture. AudioParam automation runs on the audio thread, not
  * a succession of per-pointer samples. No oscillator/low-frequency impact. */
