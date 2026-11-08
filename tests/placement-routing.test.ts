@@ -16,3 +16,17 @@ it('successive children occupy distinct sectors around the same parent',()=>{
   const point=placeAtom({data:{atoms:[root,first],links:[makeLink(root.id,first.id)]},parent:root.id});
   expect(Math.abs(Math.atan2(point.y,point.x))).toBeGreaterThan(.4);
 });
+it('does not extend an existing incident edge along the same ray',()=>{
+ const root=makeAtom({id:'root',title:'Root'}),sibling=makeAtom({id:'sibling',title:'Sibling',x:0,y:-200});
+ for(const reversed of [false,true]){
+  const data={atoms:[root,sibling],links:[makeLink(reversed?sibling.id:root.id,reversed?root.id:sibling.id)]};
+  const child=placeAtom({data,parent:root.id});
+  const cosine=-child.y/Math.hypot(child.x,child.y);expect(cosine).toBeLessThan(.985);
+ }
+});
+it('considers secondary link targets and avoids crossing an unrelated wall',()=>{
+ const root=makeAtom({id:'root',title:'Root',x:-200,y:0}),target=makeAtom({id:'target',title:'Target',x:-200,y:300}),a=makeAtom({id:'a',title:'A',x:100,y:-700}),b=makeAtom({id:'b',title:'B',x:100,y:700});
+ const data={atoms:[root,target,a,b],links:[makeLink(a.id,b.id)]};
+ const child=placeAtom({data,parent:root.id,targets:[root.id,target.id],atom:{title:'New linked note'}});
+ expect(segmentsCross(root,child,a,b)).toBe(false);expect(segmentsCross(target,child,a,b)).toBe(false);
+});

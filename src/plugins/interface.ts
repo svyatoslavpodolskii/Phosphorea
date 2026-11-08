@@ -12,7 +12,7 @@ function controlPlugin<T>(id:string,name:string,description:string,fields:Settin
 export function interfacePlugins(zoom:(value:ZoomControls|null)=>void,board:(value:BoardControls|null)=>void){return[
  controlPlugin<ZoomControls>('builtin.zoom','Кинетичный зум','Управление одной рукой. Ненавязчивый ползунок с откликом на масштаб и границы.',[
   {key:'side',label:'Расположение зума',type:'select',default:'right',options:[{value:'right',label:'Справа'},{value:'left',label:'Слева'},{value:'bottom',label:'Снизу'}]},
-  {key:'style',label:'Управление зумом',type:'select',default:'slider',options:[{value:'slider',label:'Ползунок'},{value:'wheel',label:'Крутилка'}]},
+  {key:'style',label:'Управление зумом',type:'select',default:'wheel',options:[{value:'slider',label:'Ползунок'},{value:'wheel',label:'Крутилка'}]},
   {key:'feedback',label:'Тактильный отклик',type:'boolean',default:true},
  ],zoom),
  controlPlugin<BoardControls>('builtin.kanban','Канбан','Задачи из заметок, компактное представление и повторения.',[

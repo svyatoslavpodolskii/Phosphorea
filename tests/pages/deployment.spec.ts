@@ -9,7 +9,7 @@ async function createNote(page:import('@playwright/test').Page,title:string,x=.7
 for(const path of ['/','/Phosphora/','/Phosphorea/'])test(`static deployment ${path}: SQLite, scoped assets, reload and offline new tab`,async({page,context})=>{
  const errors:string[]=[];const requests:string[]=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
- const response=await page.goto(path);expect(response?.headers()['cross-origin-embedder-policy']).toBeUndefined();expect(await page.evaluate(()=>crossOriginIsolated)).toBe(false);
+ await page.addInitScript(()=>localStorage.setItem('phosphorea:tour-v1','seen'));const response=await page.goto(path);expect(response?.headers()['cross-origin-embedder-policy']).toBeUndefined();expect(await page.evaluate(()=>crossOriginIsolated)).toBe(false);
  await expect(page).toHaveTitle('Phosphorea — ваша живая карта');
  await createNote(page,'Pages persistence');await expect(page.locator('footer')).toContainText('1 атомов');
  await page.reload();await expect(page.locator('footer')).toContainText('1 атомов');

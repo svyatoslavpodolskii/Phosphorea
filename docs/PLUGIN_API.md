@@ -52,6 +52,12 @@ Bundled `builtin.branch`, `builtin.molecule`, `builtin.compact` использу
 | commands | add | ui |
 | types | register | ui |
 | graph | focus, registerMapTool, registerStructuralProvider, registerLayout, registerPhysicsProvider, registerLayoutProvider, registerClusteringProvider, registerLinkReductionProvider, registerNodeWeightProvider | graph |
+
+Инкрементальный `LayoutProvider.place` получает `{data, parent?, atom?, targets?}`.
+Необязательные `atom` и `targets` содержат новую заметку и идентификаторы всех
+намеченных соседей после подготовки draft policies. Старые провайдеры, использующие
+только `data` и `parent`, совместимы. Результат — конечные `{x, y}`; неконечные
+координаты отклоняются до транзакции сохранения. Явно заданная позиция не заменяется.
 | ui | notify, registerContextAction | ui |
 | views | register | ui |
 | storage | get, set | storage |

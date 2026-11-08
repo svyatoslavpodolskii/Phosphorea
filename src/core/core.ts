@@ -1,3 +1,4 @@
+import {placeAtom,type PlacementInput} from '../graph/placement';
 import {branchingLayout} from '../graph/structure';
 import {NoteSearch} from './search';
 import {transitionState,makeAtom,makeLink,type Atom,type AtomState,type Snapshot,type StorageAdapter,type Mutation,type PositionUpdate} from './model';
@@ -9,7 +10,7 @@ import {EDITOR_CHECKPOINT} from './editor-checkpoint';
 export {normalize} from './matching';
 export class Core {
  readonly drafts=new DraftPolicies();
- placementProvider?: (input:{data:Snapshot;parent?:string})=>Promise<{x:number;y:number}>|{x:number;y:number};
+ placementProvider?: (input:PlacementInput)=>Promise<{x:number;y:number}>|{x:number;y:number};
  data:Snapshot={atoms:[],links:[]};prefs=preferences();
  private searchIndex=new NoteSearch();
  private listeners=new Set<()=>void>();private events=new Map<string,Set<(payload:any)=>unknown>>();private queue:Promise<unknown>=Promise.resolve();
@@ -23,17 +24,8 @@ export class Core {
  private serial<T>(fn:()=>Promise<T>):Promise<T>{const next=this.queue.then(fn);this.queue=next.catch(()=>{});return next;}
  async commit(ops:Mutation[]){await this.storage.transaction(ops);await this.refresh();}
  async setPreferences(value:Preferences){const next=preferences(value);await this.storage.transaction([{kind:'setting',key:'preferences',value:next}]);this.prefs=next;this.emit('preferences:update',next);this.changed();}
-  /** Fallback used when no layout provider is registered. A loose atom joins the
-   *  content that is already there instead of the far corner of the coordinate space. */
-  private place(parent?:string){const root=this.data.atoms.find(a=>a.id===parent);const atoms=this.data.atoms;
-   if(!root&&!atoms.length)return{x:0,y:0};
-   const xs=atoms.map(a=>a.x),ys=atoms.map(a=>a.y);
-   // Anchor beside the existing content, not at the origin of an empty plane.
-   const x=root?root.x:(Math.min(...xs)+Math.max(...xs))/2+Math.max(...xs)-Math.min(...xs)+190;
-   const y=root?root.y:(Math.min(...ys)+Math.max(...ys))/2;
-   for(let i=0;i<2000;i++){const angle=i*2.39996;const radius=root?165+Math.floor(i/8)*95:170*Math.sqrt(i);const p={x:x+Math.cos(angle)*radius,y:y+Math.sin(angle)*radius};if(!atoms.some(a=>Math.hypot(a.x-p.x,a.y-p.y)<110))return p;}return{x:x+1000,y:y+1000};}
  saveDraft(input:Partial<Atom>&{title:string},add:{to:string;relation:string;source?:string}[]=[],remove:string[]=[],parent?:string,preservePosition=true,consumeCheckpoint=false){return this.serial(async()=>{
- const plain=JSON.parse(JSON.stringify(input));const before=input.id?this.data.atoms.find(a=>a.id===input.id):undefined;if(input.id&&!before)throw Error('Атом не найден.');if(!before){delete plain.id;if(plain.x===undefined||plain.y===undefined)Object.assign(plain,this.placementProvider?await this.placementProvider({data:structuredClone(this.data),parent}):this.place(parent));}
+ const plain=JSON.parse(JSON.stringify(input));const before=input.id?this.data.atoms.find(a=>a.id===input.id):undefined;if(input.id&&!before)throw Error('Атом не найден.');const autoPlace=!before&&(plain.x===undefined||plain.y===undefined);if(!before)delete plain.id;
  let atom:Atom=before?{...before,...plain,id:before.id,x:preservePosition?before.x:plain.x??before.x,y:preservePosition?before.y:plain.y??before.y,spatial:preservePosition?before.spatial:plain.spatial??before.spatial,created_at:before.created_at,updated_at:new Date().toISOString(),revision:before.revision+1}:makeAtom(plain);
  atom=syncTasks(transitionState(before,atom),before);
  if(before&&atom.pinned!==before.pinned)atom.spatial={resistance:0};
@@ -45,6 +37,7 @@ export class Core {
  if(consumeCheckpoint)ops.push({kind:'setting',key:EDITOR_CHECKPOINT,value:null});
  const effects=await this.drafts.prepare({atom,before,data:this.data,parent,add:additions,remove,rejected:rejection.targets});
  atom.properties=effects.properties;additions.push(...effects.add);for(const id of effects.remove)ops.push({kind:'unlink',id});
+ if(autoPlace){const placement:PlacementInput={data:structuredClone(this.data),parent,atom,targets:[...new Set([...(parent?[parent]:[]),...additions.map(l=>l.to)])]};const point=await (this.placementProvider?.(placement)??placeAtom(placement));if(!Number.isFinite(point.x)||!Number.isFinite(point.y))throw Error('Invalid layout position');Object.assign(atom,point);}
  for(const l of additions)ops.push({kind:'link',link:makeLink(atom.id,l.to,l.relation,l.source||'manual')});await this.commit(ops);this.emit(before?'atom:update':'atom:create',atom);for(const op of ops){if(op.kind==='link')this.emit('link:create',op.link);if(op.kind==='unlink')this.emit('link:delete',{id:op.id});}return atom;
  });}
  create(input:Partial<Atom>&{title:string},parent?:string){return this.saveDraft(input,[],[],parent);}

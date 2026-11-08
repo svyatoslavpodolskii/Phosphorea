@@ -18,6 +18,19 @@ async function setup(){
 }
 const manifest={id:'test.drafts',name:'Draft policy',version:'1',apiVersion:1,permissions:['atoms.read','atoms.write','links.read','links.write']} satisfies Plugin['manifest'];
 
+it('places new notes after draft policies supply links, and preserves explicitly chosen positions',async()=>{
+ const h=await setup();try{
+  const parent=await h.core.create({title:'Parent',x:100,y:100}),other=await h.core.create({title:'Other',x:100,y:400});
+  const calls:any[]=[];h.core.placementProvider=input=>{calls.push(structuredClone(input));return{x:320,y:240};};
+  const off=h.core.drafts.register({id:'test.policy',name:'Add link',prepare:()=>({add:[{to:other.id,relation:'related'}]})});
+  const child=await h.core.create({title:'Child'},parent.id);expect(child).toMatchObject({x:320,y:240});
+  expect(calls).toHaveLength(1);expect(calls[0].targets).toEqual([parent.id,other.id]);expect(calls[0].atom.title).toBe('Child');
+  await h.core.create({title:'Explicit',x:-50,y:-60},parent.id);expect(calls).toHaveLength(1);
+  const before=structuredClone(h.core.data);h.core.placementProvider=()=>({x:NaN,y:0});
+  await expect(h.core.create({title:'Invalid'},parent.id)).rejects.toThrow('Invalid layout position');expect(h.core.data).toEqual(before);off();
+ }finally{h.close();}
+});
+
 it('undo restores only the deleted atoms and links, preserving later work',async()=>{
  const h=await setup();try{const a=await h.core.create({title:'Deleted',x:40,y:90}),b=await h.core.create({title:'Neighbor',x:400,y:-30});const link=await h.core.link(a.id,b.id);await h.core.delete(a.id);await h.core.update(b.id,{title:'Changed afterwards'});const c=await h.core.create({title:'Later note'});expect(await h.core.undoDeletion()).toEqual([a.id]);expect(h.core.data.atoms.find(n=>n.id===a.id)).toMatchObject({x:40,y:90,title:'Deleted'});expect(h.core.data.atoms.find(n=>n.id===b.id)?.title).toBe('Changed afterwards');expect(h.core.data.atoms.some(n=>n.id===c.id)).toBe(true);expect(h.core.data.links).toContainEqual(link);expect(await h.core.undoDeletion()).toEqual([]);expect(await h.core.storage.getSetting('last-deletion-summary')).toBeNull();}finally{h.close();}
 });

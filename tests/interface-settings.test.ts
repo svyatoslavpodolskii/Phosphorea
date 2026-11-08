@@ -13,7 +13,7 @@ it('does not revive interface controls when a settings read finishes after plugi
  const changes:unknown[]=[],handlers=new Set<(event:any)=>unknown>();let delayed=false,release:(value:unknown)=>void=()=>{};
  const plugin=interfacePlugins(value=>changes.push(value),()=>{})[0];
  const api={settings:{get:async(key:string)=>key==='side'&&delayed?new Promise(resolve=>release=resolve):undefined},events:{on:(_name:string,handler:(event:any)=>unknown)=>{handlers.add(handler);return()=>handlers.delete(handler);}}} as unknown as PluginAPI;
- const dispose=await plugin.activate(api);expect(changes.at(-1)).toEqual({side:'right',style:'slider',feedback:true});
+ const dispose=await plugin.activate(api);expect(changes.at(-1)).toEqual({side:'right',style:'wheel',feedback:true});
  delayed=true;const pending=[...handlers][0]({plugin:plugin.manifest.id,key:'side'});if(typeof dispose==='function')dispose();release('left');await pending;
- expect(changes).toEqual([{side:'right',style:'slider',feedback:true},null]);expect(handlers.size).toBe(0);
+ expect(changes).toEqual([{side:'right',style:'wheel',feedback:true},null]);expect(handlers.size).toBe(0);
 });

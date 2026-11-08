@@ -2,7 +2,9 @@ import type {Snapshot} from '../core/model';
 import {structure} from './structure';
 import {footprint} from './footprint';
 type Point={x:number;y:number};
+export interface PlacementInput {data:Snapshot;parent?:string;atom?:Partial<Snapshot['atoms'][number]>;targets?:string[]}
 export function segmentsCross(a:Point,b:Point,c:Point,d:Point){const side=(p:Point,q:Point,r:Point)=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);return side(a,b,c)*side(a,b,d)<0&&side(c,d,a)*side(c,d,b)<0;}
+function segmentDistance(p:Point,a:Point,b:Point){const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);}
 
 const RADIUS=[200,265,345,440,560];
 const SPACING=26,MIN_GAP=118;
@@ -12,17 +14,18 @@ const SPACING=26,MIN_GAP=118;
  *  out of its parent along the branch, respects the siblings and the labels already
  *  painted there, prefers a sector that adds no edge crossing, and never disturbs
  *  a position the user chose. */
-export function placeAtom({data,parent}:{data:Snapshot;parent?:string}){
+export function placeAtom({data,parent,atom,targets=[]}:PlacementInput){
   const byId=new Map(data.atoms.map(a=>[a.id,a]));
-  const anchor=parent?byId.get(parent):undefined;
+  const anchor=byId.get(parent||targets[0]);
   if(!data.atoms.length)return{x:0,y:0};
-  return anchor?grow(data,byId,anchor):newIsland(data);
+  return anchor?grow(data,byId,anchor,atom,targets):newIsland(data);
 }
 
 /** Grows a child out of its parent, in the widest free sector ahead of it. */
-function grow(data:Snapshot,byId:Map<string,Snapshot['atoms'][number]>,anchor:Atom){
+function grow(data:Snapshot,byId:Map<string,Snapshot['atoms'][number]>,anchor:Atom,atom:PlacementInput['atom'],targets:string[]){
   const tree=structure(data),treeAnchor=byId.get(anchor.id)!;
-  const foot=footprint(anchor.title,anchor.appearance.size_override||35,Boolean(anchor.content));
+  const foot=footprint(atom?.title??anchor.title,atom?.appearance?.size_override||35,Boolean(atom?.content));
+  const destinations=[...new Set([anchor.id,...targets])].map(id=>byId.get(id)).filter((a):a is Atom=>Boolean(a));
   const upstreamId=tree.parent.get(anchor.id),upstream=upstreamId?byId.get(upstreamId):undefined;
   const back=upstream?Math.atan2(treeAnchor.y-upstream.y,treeAnchor.x-upstream.x):undefined;
 
@@ -41,14 +44,14 @@ function grow(data:Snapshot,byId:Map<string,Snapshot['atoms'][number]>,anchor:At
   // The edge back to the ancestor stays clear so a branch keeps growing outward.
   if(back!==undefined)blocked.push({from:back+Math.PI-.55,to:back+Math.PI+.55,weight:2});
 
-  const links=data.links.map(l=>({a:byId.get(l.from),b:byId.get(l.to)})).filter((l):l is{a:Snapshot['atoms'][number];b:Snapshot['atoms'][number]}=>Boolean(l.a&&l.b&&l.a.id!==anchor.id));
+  const links=data.links.map(l=>({a:byId.get(l.from),b:byId.get(l.to)})).filter((l):l is{a:Snapshot['atoms'][number];b:Snapshot['atoms'][number]}=>Boolean(l.a&&l.b));
   let best={x:anchor.x+200,y:anchor.y},bestScore=Infinity;
   for(let ring=0;ring<RADIUS.length;ring++)for(let i=0;i<48;i++){
    const angle=back===undefined?-Math.PI/2+i*Math.PI/24:back+.62+i*Math.PI/24;
    const radius=RADIUS[ring];
    const point={x:anchor.x+Math.cos(angle)*radius,y:anchor.y+Math.sin(angle)*radius};
    let crowding=0;
-   for(const b of blocked)crowding+=angle>b.from&&angle<b.to?b.weight*(ring+1):0;
+   for(const b of blocked){const middle=(b.from+b.to)/2;crowding+=Math.abs(Math.atan2(Math.sin(angle-middle),Math.cos(angle-middle)))<(b.to-b.from)/2?b.weight*(ring+1):0;}
    // Angular separation from the nearest painted neighbour.
    let separation=Math.PI;
    for(const other of data.atoms){
@@ -59,7 +62,17 @@ function grow(data:Snapshot,byId:Map<string,Snapshot['atoms'][number]>,anchor:At
    }
    // A candidate that crosses an existing edge is a worse place to read the graph.
    let crossings=0;
-   for(const {a,b} of links)if(a.id!==anchor.id&&segmentsCross(anchor,point,a,b))crossings++;
+   for(const target of destinations){
+    for(const {a,b} of links){
+     if(a.id===target.id||b.id===target.id){
+      const other=a.id===target.id?b:a;
+      // Incident edges may share an endpoint, but must not share a ray.
+      const cosine=((point.x-target.x)*(other.x-target.x)+(point.y-target.y)*(other.y-target.y))/(Math.hypot(point.x-target.x,point.y-target.y)*Math.hypot(other.x-target.x,other.y-target.y)||1);
+      if(cosine>.985)crossings++;
+     }else if(segmentsCross(target,point,a,b))crossings++;
+    }
+    for(const other of data.atoms)if(other.id!==target.id&&segmentDistance(other,target,point)<45)crossings++;
+   }
    // Do not land on top of anything, and leave room for this atom's own label.
    let collision=0;
    for(const other of data.atoms){
@@ -69,7 +82,8 @@ function grow(data:Snapshot,byId:Map<string,Snapshot['atoms'][number]>,anchor:At
     const oy=Math.min(other.y+otherFoot.bottom,point.y+foot.bottom)-Math.max(other.y-otherFoot.top,point.y-foot.top)+MIN_GAP;
     if(ox>0&&oy>0)collision+=ox*oy;
    }
-   const forward=back===undefined?0:1-Math.cos(angle-back);const score=forward*180+crowding*90-separation*260+crossings*900+collision/240+ring*70+Math.max(0,angle-(back??-Math.PI/2)-1.6)*40;
+   const length=destinations.reduce((sum,a)=>sum+Math.hypot(point.x-a.x,point.y-a.y),0);
+   const forward=back===undefined?0:1-Math.cos(angle-back);const score=forward*180+crowding*90-separation*260+crossings*100000+collision*20+ring*70+length*.1;
    if(score<bestScore){bestScore=score;best=point;}
   }
   return best;

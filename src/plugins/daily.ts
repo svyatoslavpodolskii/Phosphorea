@@ -14,7 +14,7 @@ export async function createDaily(app:PluginAPI,date=new Date(),contextId?:strin
  async function ensure(key:string,title:string,parent?:string,placement=position||{x:0,y:0}){
   let atom=atoms.find(a=>a.properties.calendarKey===key||(key===day&&a.properties.dailyDate===day));
   if(position){for(let i=0;i<512;i++){const radius=140*Math.sqrt(i),angle=i*2.399963229728653;placement={x:position.x+Math.cos(angle)*radius,y:position.y+Math.sin(angle)*radius};if(atoms.every(a=>Math.hypot(a.x-placement.x,a.y-placement.y)>130+(a.appearance.size_override||30)))break;}}
-  if(!atom){atom=await app.atoms.create({title,...(contextId?{}:placement),properties:{calendarKey:key,...(weights?{[FOLDER_MEMBERSHIP]:weights}:{}),...(key===day?{dailyDate:day}:{})},...(key===day?{state:'normal' as const,content:'## Что сегодня важно\n\n- \n\n## Мысли\n\n'}:{})},parent);atoms.push(atom);if(parent){const actual=(await app.links.list()).find(l=>l.from===parent&&l.to===atom!.id);if(actual)links.push(actual);}}
+  if(!atom){atom=await app.atoms.create({title,...(parent?{}:placement),properties:{calendarKey:key,...(weights?{[FOLDER_MEMBERSHIP]:weights}:{}),...(key===day?{dailyDate:day}:{})},...(key===day?{state:'normal' as const,content:'## Что сегодня важно\n\n- \n\n## Мысли\n\n'}:{})},parent);atoms.push(atom);if(parent){const actual=(await app.links.list()).find(l=>l.from===parent&&l.to===atom!.id);if(actual)links.push(actual);}}
   if(parent&&!links.some(l=>(l.from===parent&&l.to===atom!.id)||(l.to===parent&&l.from===atom!.id)))links.push(await app.links.create(parent,atom.id));
   return atom;
  }

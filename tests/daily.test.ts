@@ -1,4 +1,5 @@
 import {it,expect} from 'vitest';
+import {placeAtom} from '../src/graph/placement';
 import {createDaily,daily} from '../src/plugins/daily';
 import {makeAtom,makeLink,type Atom,type Link} from '../src/core/model';
 import {validateManifest,type PluginAPI} from '../src/plugins/api';
@@ -32,8 +33,8 @@ it('last weeks stay inside their month and February respects leap years',async()
   expect(h.links.some(l=>l.from===parent.id&&l.to===week.id)).toBe(true);
  }
 });
-function harness(settings:Record<string,unknown>){const atoms:Atom[]=[],links:Link[]=[];const api={atoms:{list:async()=>structuredClone(atoms),create:async(input:any)=>{const a=makeAtom(input);atoms.push(a);return a;}},links:{list:async()=>structuredClone(links),create:async(from:string,to:string)=>{const l=makeLink(from,to);links.push(l);return l;}},settings:{get:async(key:string)=>settings[key]},graph:{focus:()=>{}}} as unknown as PluginAPI;return{api,atoms,links};}
+function harness(settings:Record<string,unknown>){const atoms:Atom[]=[],links:Link[]=[];const api={atoms:{list:async()=>structuredClone(atoms),create:async(input:any,parent?:string)=>{const a=makeAtom({...input,...(input.x===undefined||input.y===undefined?placeAtom({data:{atoms,links},parent,atom:input}):{})});atoms.push(a);return a;}},links:{list:async()=>structuredClone(links),create:async(from:string,to:string)=>{const l=makeLink(from,to);links.push(l);return l;}},settings:{get:async(key:string)=>settings[key]},graph:{focus:()=>{}}} as unknown as PluginAPI;return{api,atoms,links};}
 it('all calendar levels are optional, and repeated commands preserve existing notes',async()=>{
  for(const years of [false,true])for(const months of [false,true])for(const weeks of [false,true]){const h=harness({years,months,weeks});const a=await createDaily(h.api,new Date(2026,8,12));expect(new Set(h.atoms.map(a=>a.id)).size).toBe(1+Number(years)+Number(months)+Number(weeks));expect(new Set(h.links.map(l=>l.id)).size).toBe(Number(years)+Number(months)+Number(weeks));a.content='Keep my text';expect((await createDaily(h.api,new Date(2026,8,12))).content).toBe('Keep my text');expect(a.properties.dailyDate).toBe('2026-09-12');}
 });
-it('reuses month containers, orders newly created days, and formats local dates',async()=>{const h=harness({years:true,months:true,dayFormat:'{YYYY}-{MM}-{DD}'});const second=await createDaily(h.api,new Date(2026,1,2)),first=await createDaily(h.api,new Date(2026,1,1));expect(first.x).toBeLessThan(second.x);expect(first.title).toBe('2026-02-01');expect(new Set(h.atoms.map(a=>a.id)).size).toBe(4);validateManifest(daily.manifest);expect(()=>validateManifest({...daily.manifest,settings:[{key:'x',type:'boolean',default:'bad' as any,label:'x'}]})).toThrow();});
+it('reuses month containers, separates linked days, and formats local dates',async()=>{const h=harness({years:true,months:true,dayFormat:'{YYYY}-{MM}-{DD}'});const second=await createDaily(h.api,new Date(2026,1,2)),first=await createDaily(h.api,new Date(2026,1,1));expect(Math.hypot(first.x-second.x,first.y-second.y)).toBeGreaterThan(130);expect(first.title).toBe('2026-02-01');expect(new Set(h.atoms.map(a=>a.id)).size).toBe(4);validateManifest(daily.manifest);expect(()=>validateManifest({...daily.manifest,settings:[{key:'x',type:'boolean',default:'bad' as any,label:'x'}]})).toThrow();});

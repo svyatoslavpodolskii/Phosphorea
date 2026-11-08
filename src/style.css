@@ -76,7 +76,7 @@ header .search:focus-within{border-color:var(--theme-accent)}
 header .search-close{position:absolute;right:3px;top:3px;min-height:36px;height:36px;width:32px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--theme-muted);font-size:20px}
 header .search+button{margin-left:auto}
 header .workspace-switch{margin-right:0}
-@media(max-width:650px){header .search.search-open{position:absolute;top:52px;left:0;width:100%}header .search-results{max-height:55dvh}}
+@media(max-width:650px){header .search{position:absolute;top:0;left:0;z-index:2}header{padding-left:52px}header .search.search-open{width:100%}header .search-results{max-height:55dvh}}
 /* Semantic colors: surfaces never depend on a theme's brightness assumptions. */
 :root{accent-color:var(--theme-accent);scrollbar-color:var(--theme-border) var(--theme-surface)}
 body,main{color:var(--theme-text)}

@@ -1,3 +1,4 @@
+import type {PlacementInput} from './placement';
 import type {Snapshot,Link} from '../core/model';
 import type {GraphModel} from './model';
 import type {PhysicsInput,PhysicsOutput} from './physics';
@@ -8,7 +9,7 @@ export interface StructuralProvider extends Provider{description:string;physicsI
 export interface Provider {id:string;name:string}
 export interface MapTool extends Provider {kind:'lasso'|'ambient-lens'}
 export interface PhysicsProvider extends Provider {step:(input:PhysicsInput)=>PhysicsOutput|Promise<PhysicsOutput>}
-export interface LayoutProvider extends Provider {place:(input:{data:Snapshot;parent?:string})=>{x:number;y:number}|Promise<{x:number;y:number}>}
+export interface LayoutProvider extends Provider {place:(input:PlacementInput)=>{x:number;y:number}|Promise<{x:number;y:number}>}
 export interface ClusteringProvider extends Provider {project:(input:{data:Snapshot;lens:string;zoom:number;selected:string})=>GraphModel|Promise<GraphModel>}
 export interface LinkReductionProvider extends Provider {reduce:(input:{data:Snapshot;selected:string})=>Link[]|Promise<Link[]>}
 export interface NodeWeightProvider extends Provider {weigh:(data:Snapshot)=>Record<string,number>|Promise<Record<string,number>>}

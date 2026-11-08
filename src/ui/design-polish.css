@@ -29,3 +29,5 @@ main.app-ready,html[data-ui-panels=false] .kanban{animation:none}
 
 /* The save popover and search belong above the folder strip, below modal sheets. */
 main>header{z-index:8}.save-status:has(.save-popover){z-index:1}
+
+.author-card{width:100%;display:grid;gap:5px;padding:18px 0;margin:8px 0;border-top:1px solid var(--theme-border)}.author-card strong{font-size:14px;font-weight:550}.author-card small{color:var(--theme-muted);font-size:11px}.author-card a{color:var(--theme-text);font-size:12px;line-height:1.5;padding:10px 0;text-underline-offset:4px}.state-drop-tray{max-width:calc(100vw - 16px)}.state-drop-tray [data-atom-state]{min-width:0;flex:1;padding-inline:6px}
