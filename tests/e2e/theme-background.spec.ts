@@ -67,7 +67,7 @@ test('camera modes reuse bounded decoration nodes while panning and zooming',asy
 
 test('mode persists through export/import and reduced motion disables decorative movement',async({page})=>{
  await boot(page);await setMode(page,'parallax');await openSettings(page);await page.getByRole('button',{name:'Плагины →',exact:true}).click();await page.locator('.plugin-row').filter({hasText:'Темы и атмосфера'}).getByRole('button',{name:'Настройки',exact:true}).click();
- const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Экспорт темы',exact:true}).click();
+ await page.locator('.theme-files>summary').click();const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Экспорт темы',exact:true}).click();
  const stream=await(await pending).createReadStream();let text='';for await(const chunk of stream!)text+=chunk.toString();
  expect(JSON.parse(text).theme.effects.mode).toBe('parallax');
  await page.getByLabel('Импорт темы',{exact:true}).setInputFiles({name:'motion.json',mimeType:'application/json',buffer:Buffer.from(text)});

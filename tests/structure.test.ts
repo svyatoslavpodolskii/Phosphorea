@@ -3,6 +3,7 @@ import {makeAtom,makeLink,type Snapshot} from '../src/core/model';
 import {branchingLayout,structure} from '../src/graph/structure';
 import {footprint} from '../src/graph/footprint';
 import {physicsStep,PRESETS,type Body} from '../src/graph/physics';
+it('a deleted selection has no descendants, including in an empty workspace',()=>{expect(structure({atoms:[],links:[]}).descendants('deleted')).toEqual([]);const a=makeAtom({id:'kept',title:'Kept'});expect(structure({atoms:[a],links:[]}).descendants('deleted')).toEqual([]);expect(structure({atoms:[a],links:[]}).descendants('kept')).toEqual(['kept']);});
 export function hundred():Snapshot{const atoms=Array.from({length:100},(_,i)=>makeAtom({id:'a'+i,title:i<4?'Project '+i:'A thought with a readable label '+i}));const links=[];for(let i=1;i<88;i++)links.push(makeLink('a'+Math.floor((i-1)/4),'a'+i,'related','context'));links.push(makeLink('a18','a61'),makeLink('a27','a79'));atoms.forEach(a=>{a.created_at='2026-01-01T00:00:00.000Z';});links.forEach((l,i)=>{l.id='edge-'+String(i).padStart(3,'0');});return {atoms,links};}
 it('explicit groups retain their direction despite a more prominent child and cyclic context links',()=>{
  const atoms=['target','root','child','context'].map(id=>makeAtom({id,title:id,importance:id==='child'?2:0}));

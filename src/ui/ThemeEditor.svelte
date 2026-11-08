@@ -17,8 +17,8 @@
  <p class="theme-help">Три цвета задают всю палитру. Поверхности, текст и границы подстраиваются автоматически.</p>
  <label class="stack">Рисунок фона<select aria-label="Рисунок фона" bind:value={effects.pattern}>{#each [['none','Без рисунка'],['daisies','Ромашки'],['stars','Сказочные звёзды'],['night-sky','Ночное небо'],['fireflies','Светлячки']] as [value,label]}<option value={value as Pattern}>{label}</option>{/each}</select></label>
  {#if effects.pattern!=='none'}<label class="stack">Количество<input aria-label="Количество фигур" type="range" min="0" max="1" step="0.05" bind:value={effects.density}/></label><label class="stack">Выразительность<input aria-label="Выразительность фона" type="range" min="0" max="1" step="0.05" bind:value={effects.strength}/></label>{/if}
- <label class="stack">Движение фона<select aria-label="Движение фона" bind:value={effects.mode}><option value="static">Static</option><option value="world">World Attached</option><option value="parallax">Parallax</option></select></label>
- <p class="theme-help">Static — фон остаётся на месте. World Attached — следует за картой. Parallax — три слоя с разной глубиной. При уменьшении движения фон неподвижен.</p>
+ <label class="stack">Движение фона<select aria-label="Движение фона" bind:value={effects.mode}><option value="static">Неподвижный</option><option value="world">Вместе с картой</option><option value="parallax">Глубина</option></select></label>
+ <p class="theme-help">Неподвижный фон, движение вместе с картой или мягкая глубина в три слоя. При уменьшении движения фон остаётся неподвижным.</p>
  <label class="stack">Зернистость · {Math.round(effects.grain*100)}%<input aria-label="Зернистость" type="range" min="0" max="1" step="0.05" bind:value={effects.grain}/></label>
  {#if error}<p role="alert" class="inline-error">{error}</p>{/if}
  <div class="button-wrap"><button class="primary" type="submit" disabled={busy}>Сохранить тему</button><button type="button" disabled={busy} onclick={onclose}>Отмена</button></div>

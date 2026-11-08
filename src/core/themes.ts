@@ -47,6 +47,8 @@ export function validateTheme(value:unknown):Theme{
 export function parseTheme(text:string){if(text.length>16000)throw Error('Файл темы слишком большой.');const input=JSON.parse(text);if(input.format!=='phosphored-theme'||![1,2].includes(input.version))throw Error('Выберите файл темы Posphorea.');const theme=validateTheme(input.theme);return validateTheme({...theme,id:theme.id.startsWith('custom-')?theme.id:'custom-'+theme.id});}
 export function themeFile(value:Theme){const theme=validateTheme(value);return JSON.stringify({format:'phosphored-theme',version:2,theme:{id:theme.id,name:theme.name,base:theme.base,effects:theme.effects}},null,2);}
 export function currentTheme(id:string,custom:Theme[]=[]){return custom.find(t=>t.id===id)||THEMES.find(t=>t.id===id)||THEMES[0];}
+/** Disambiguate display names without rewriting a user's imported theme data. */
+export function themeNames(themes:Theme[]){const used=new Set<string>(),names=new Map<string,string>();for(const theme of themes){const base=theme.name.trim();let name=base,index=2;while(used.has(name.toLocaleLowerCase('ru-RU')))name=`${base} · ${index++}`;used.add(name.toLocaleLowerCase('ru-RU'));names.set(theme.id,name);}return names;}
 const svgUrl=(body:string)=>`url("data:image/svg+xml,${encodeURIComponent(body)}")`;
 export interface Decoration {x:number;y:number;size:number;rotation:number;phase:number;duration:number;opacity:number}
 export function decorations(pattern:Pattern,width:number,height:number,density:number):Decoration[]{

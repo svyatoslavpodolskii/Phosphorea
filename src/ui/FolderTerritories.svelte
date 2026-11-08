@@ -15,7 +15,7 @@
  <defs><filter id="folder-soft-edge" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="8"/></filter></defs>
  <g {transform}>
   {#each visible as territory (territory.id)}
-   <path filter="url(#folder-soft-edge)" d={territory.path} fill={territory.color} stroke={territory.color} fill-opacity={activeId===territory.id ? .12 : .065} stroke-opacity={activeId===territory.id ? .22 : .12} stroke-width="18" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+   <path filter="url(#folder-soft-edge)" d={territory.path} fill={territory.color} fill-opacity={activeId===territory.id ? .11 : .055} stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
   {/each}
  </g>
 </svg>

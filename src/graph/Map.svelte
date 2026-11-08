@@ -1,4 +1,5 @@
 <script lang="ts">
+ import {playSound} from '../ui/sound';
  import TouchFeedback from '../ui/TouchFeedback.svelte';
  import ZoomControl from '../ui/ZoomControl.svelte';
  import type {ZoomControls} from '../plugins/interface';
@@ -221,7 +222,7 @@
   clearTimeout(feedbackTimer);touchFeedback={x:p.x,y:p.y,id:++feedbackId,held:false};holdStarted=performance.now();holdReady=false;touchStart=e.pointerType==='touch';const grabbable=Boolean(node)&&hit.part!=='preview'&&(hit.part==='body'||!touchStart);
   start={...p,worldX:w.x,worldY:w.y,section:hit.part==='preview'?'text':'',node:grabbable?node??undefined:undefined,target:node??undefined,panX:camera.x,panY:camera.y};
   if(node&&(node.members||[node.id]).some(id=>lassoSelection.includes(id))){const members=data.atoms.filter(a=>lassoSelection.includes(a.id));if(members.length&&start)start.node={...node,id:'selection',members:members.map(a=>a.id),x:members.reduce((s,a)=>s+a.x,0)/members.length,y:members.reduce((s,a)=>s+a.y,0)/members.length};}
-  longTimer=setTimeout(()=>{if(!start||dragging)return;holdReady=true;stateTray=Boolean(start.target||start.node);if(touchFeedback)touchFeedback={...touchFeedback,held:true};if(start.target&&!start.node)start.node=start.target;navigator.vibrate?.(15);schedule();},550);schedule();}
+  longTimer=setTimeout(()=>{if(!start||dragging)return;holdReady=true;playSound('hold');stateTray=Boolean(start.target||start.node);if(touchFeedback)touchFeedback={...touchFeedback,held:true};if(start.target&&!start.node)start.node=start.target;navigator.vibrate?.(15);schedule();},550);schedule();}
  function move(e:PointerEvent){if(touchFeedback){const q=position(e);if(Math.hypot(q.x-touchFeedback.x,q.y-touchFeedback.y)>8)touchFeedback=null;}adopt();
   // A pointer that was never pressed still has to produce a hover candidate:
   // what the user is looking at is not the same question as what they are holding.

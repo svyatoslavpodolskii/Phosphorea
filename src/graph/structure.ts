@@ -22,7 +22,8 @@ export function structure(data:Snapshot){
  }
  if(explicit.size)roots.splice(0,roots.length,...data.atoms.filter(a=>!parent.has(a.id)).map(a=>a.id));
  const size=new Map<string,number>();const count=(id:string):number=>{const value=1+children.get(id)!.reduce((sum,k)=>sum+count(k),0);size.set(id,value);return value;};roots.forEach(count);
- const descendants=(id:string):string[]=>[id,...children.get(id)!.flatMap(descendants)];
+ // Selection can outlive a deletion while an asynchronous projection finishes.
+ const descendants=(id:string):string[]=>atoms.has(id)?[id,...(children.get(id)||[]).flatMap(descendants)]:[];
  return {roots,parent,children,size,edges,descendants};
 }
 export function branchingLayout(data:Snapshot,mode='calm',distance=175){

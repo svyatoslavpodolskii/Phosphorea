@@ -3,9 +3,9 @@ import {transientUndo} from '../src/ui/transient-undo';
 
 afterEach(()=>vi.useRealTimers());
 describe('transient relationship Undo',()=>{
- it('expires eight seconds after the mutation without needing another render',()=>{
+ it('expires 3.2 seconds after the mutation without needing another render',()=>{
   vi.useFakeTimers();const changed=vi.fn(),toast=transientUndo(changed);
-  toast.show('create');vi.advanceTimersByTime(7999);expect(changed).toHaveBeenLastCalledWith('create');
+  toast.show('create');vi.advanceTimersByTime(3199);expect(changed).toHaveBeenLastCalledWith('create');
   vi.advanceTimersByTime(1);expect(changed).toHaveBeenLastCalledWith(null);
  });
  it('replaces the deadline only for a new mutation',()=>{

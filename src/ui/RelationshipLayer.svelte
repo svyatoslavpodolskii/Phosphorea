@@ -51,7 +51,7 @@
  .link-actions{display:flex;align-items:center;gap:8px;max-width:90vw}
  .link-actions span{padding-left:10px;font-size:12px;max-width:30vw;overflow:hidden;text-overflow:ellipsis}
  .link-actions button,.link-undo button:first-child{white-space:nowrap}
- .link-undo{display:flex;align-items:center;gap:8px;z-index:5;bottom:210px;max-width:calc(100vw - 24px)}
- .link-hint{bottom:285px;font-size:13px;pointer-events:none}
- .link-error{bottom:335px;max-width:90vw;z-index:5}.link-error button{margin-left:8px}
+ .link-undo{display:flex;align-items:center;gap:8px;z-index:5;bottom:calc(104px + env(safe-area-inset-bottom));max-width:calc(100vw - 24px)}
+ .link-hint{bottom:calc(165px + env(safe-area-inset-bottom));font-size:13px;pointer-events:none}
+ .link-error{bottom:calc(220px + env(safe-area-inset-bottom));max-width:90vw;z-index:5}.link-error button{margin-left:8px}
 </style>

@@ -1,23 +1,26 @@
 <script lang="ts">
+ import RotaryZoom from './RotaryZoom.svelte';
+ import {playSound} from './sound';
  import {onMount,onDestroy} from 'svelte';
  import type {ZoomControls} from '../plugins/interface';
  let {value,percent,options,onvalue}:{value:number;percent:number;options:ZoomControls;onvalue:(value:number)=>void}=$props();
  let grabbed=$state(false),lit=$state(false),draft=$state(0),reduced=$state(false);let timer:ReturnType<typeof setTimeout>;let bucket=-1;let meter:HTMLOutputElement;
  const side=$derived(options.side);const vertical=$derived(side!=='bottom');
  function wake(){lit=true;clearTimeout(timer);timer=setTimeout(()=>{if(!grabbed)lit=false;},1000);}
- function change(next:number){draft=next;wake();const step=Math.floor(next/10);if(step!==bucket){bucket=step;if(options.feedback&&!reduced){navigator.vibrate?.(next===0||next===100?10:5);meter?.animate([{transform:'scale(.97)',opacity:.7},{transform:'scale(1)',opacity:1}],{duration:140,easing:'cubic-bezier(.23,1,.32,1)'});}}onvalue(next);}
+ function change(next:number){draft=next;wake();const step=Math.floor(next/(options.style==='wheel'?2:10));if(step!==bucket){bucket=step;playSound('detent');if(options.feedback&&!reduced){navigator.vibrate?.(next===0||next===100?10:5);meter?.animate([{transform:'scale(.97)',opacity:.7},{transform:'scale(1)',opacity:1}],{duration:140,easing:'cubic-bezier(.23,1,.32,1)'});}}onvalue(next);}
  function release(){if(grabbed){grabbed=false;wake();}}
  onMount(()=>{const media=matchMedia('(prefers-reduced-motion: reduce)');reduced=media.matches;const update=()=>reduced=media.matches;media.addEventListener('change',update);return()=>media.removeEventListener('change',update);});onDestroy(()=>clearTimeout(timer));
 </script>
 <svelte:window onpointerup={release} onpointercancel={release}/>
-<div class="camera-slider zoom-control" class:lit class:grabbed class:vertical class:left={side==='left'} class:right={side==='right'} class:bottom={side==='bottom'} aria-label="Управление масштабом">
- <div class="zoom-rail"><div class="zoom-ticks" aria-hidden="true">{#each Array.from({length:11},(_,i)=>i) as i}<i style:left={vertical?'26%':`${i*10}%`} style:top={vertical?`${100-i*10}%`:'50%'} class:major={i===0||i===5||i===10} class:current={Math.abs(i*10-value)<3}></i>{/each}</div>
+<div class="camera-slider zoom-control" class:wheel={options.style==='wheel'} class:lit class:grabbed class:vertical class:left={side==='left'} class:right={side==='right'} class:bottom={side==='bottom'} aria-label="Управление масштабом">
+ {#if options.style==='wheel'}<RotaryZoom {value} {percent} {vertical} onvalue={change}/>{:else}<div class="zoom-rail"><div class="zoom-ticks" aria-hidden="true">{#each Array.from({length:11},(_,i)=>i) as i}<i style:left={vertical?'26%':`${i*10}%`} style:top={vertical?`${100-i*10}%`:'50%'} class:major={i===0||i===5||i===10} class:current={Math.abs(i*10-value)<3}></i>{/each}</div>
  <input aria-label="Масштаб карты" aria-valuetext={value<2?'Обзор':`${percent}%`} type="range" min="0" max="100" step="1" value={grabbed?draft:value} onpointerdown={()=>{draft=value;bucket=Math.floor(value/10);grabbed=true;wake();}} oninput={e=>change(Number(e.currentTarget.value))} onkeydown={wake} onblur={()=>{grabbed=false;wake();}}/>
- </div><output bind:this={meter} aria-hidden="true">{percent}%</output>
+ </div>{/if}<output bind:this={meter} aria-hidden="true">{percent}%</output>
 </div>
 <style>
+ .zoom-control.wheel{padding:0;width:auto;background:color-mix(in srgb,var(--theme-surface),transparent 40%);border-color:transparent}.zoom-control.wheel:active{opacity:1}
  .zoom-control{position:absolute;z-index:4;display:flex;align-items:center;justify-content:center;border:1px solid color-mix(in srgb,var(--theme-border),transparent 55%);border-radius:28px;background:color-mix(in srgb,var(--theme-surface),transparent 28%);color:var(--theme-text);opacity:.25;transition:opacity 180ms var(--ease),border-color 180ms ease;touch-action:none}
- .zoom-control.lit,.zoom-control.grabbed,.zoom-control:has(input:focus-visible){opacity:1;border-color:var(--theme-border)}
+ .zoom-control.lit,.zoom-control.grabbed,.zoom-control:has(input:focus-visible),.zoom-control:has(:global(.rotary.held)),.zoom-control:has(:global(.rotary:focus-visible)){opacity:1;border-color:var(--theme-border)}
  .vertical{top:50%;transform:translateY(-50%);padding:10px 0;width:44px}.left{left:max(8px,env(safe-area-inset-left))}.right{right:max(8px,env(safe-area-inset-right))}.bottom{bottom:calc(110px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);padding:0 12px}
  .zoom-rail{position:relative;display:flex;align-items:center;justify-content:center;width:134px;height:44px}.vertical .zoom-rail{width:44px;height:144px}
  input{position:relative;z-index:1;width:134px;min-height:44px;padding:0;margin:0;appearance:none;background:transparent;border:0;border-radius:999px;box-shadow:none;outline:none;cursor:grab;touch-action:none}.vertical input{writing-mode:vertical-lr;direction:rtl;width:44px;height:144px;min-height:0}input:active{cursor:grabbing}input:focus{outline:none;box-shadow:none}

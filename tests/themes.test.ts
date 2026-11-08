@@ -1,5 +1,6 @@
 ﻿import {it,expect} from 'vitest';
-import {THEMES,createTheme,contrast,parseTheme,themeFile,patternImage,grainImage,validateTheme} from '../src/core/themes';
+import {THEMES,themeNames,createTheme,contrast,parseTheme,themeFile,patternImage,grainImage,validateTheme} from '../src/core/themes';
+it('distinguishes duplicate custom names without changing imported names',()=>{const a={...THEMES[0],id:'custom-one'},b={...THEMES[0],id:'custom-two'},names=themeNames([THEMES[0],a,b]);expect(new Set(names.values()).size).toBe(3);expect(a.name).toBe(THEMES[0].name);expect(names.get(a.id)).toBe(THEMES[0].name+' · 2');});
 it('high-contrast variants retain strong text, edges and their rendering flag through export',()=>{
  for(const id of ['ink','chalk','paper-contrast','meadow-contrast']){const t=THEMES.find(t=>t.id===id)!;expect(t.base.contrast).toBe(1);expect(contrast(t.colors.edge,t.colors.background)).toBeGreaterThan(7);for(const bg of [t.colors.background,t.colors.surface,t.colors.surfaceAlt])expect(contrast(t.colors.muted,bg)).toBeGreaterThanOrEqual(7);expect(parseTheme(themeFile(t)).base.contrast).toBe(1);}
 });
