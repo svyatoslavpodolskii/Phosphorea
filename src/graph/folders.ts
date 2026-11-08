@@ -3,6 +3,9 @@ import type {Camera} from './model';
 
 export const FOLDER_DEFINITIONS = 'builtin.folders.definitions';
 export const FOLDER_MEMBERSHIP = 'builtin.folders.membership';
+export const DEFAULT_FOLDER_COLOR = '#eeeeee';
+/** Neutral folders follow contrast; explicitly chosen colours stay literal. */
+export const folderDisplayColor=(color:string)=>color.toLowerCase()===DEFAULT_FOLDER_COLOR?'var(--theme-text)':color;
 export const MAX_FOLDERS = 64;
 export const MAX_FOLDER_ROOTS = 4096;
 export const TERRITORY_DIRECTIONS = 24;

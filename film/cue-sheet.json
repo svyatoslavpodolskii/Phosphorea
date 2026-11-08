@@ -1,168 +1,178 @@
 {
   "bpm": 100,
   "quarter": 0.6,
-  "growth": 68.40000000000002,
+  "growth": 68.4,
   "release": [
-    77.80000000000001,
-    81.00000000000001
+    77.8,
+    81.0
   ],
-  "logo": 87.00000000000001,
-  "author": 91.00000000000001,
+  "logo": 87.0,
+  "author": 91.0,
   "foley": [
+    {
+      "time": 67.5,
+      "kind": "tick",
+      "gain": 0.001999999999999981
+    },
+    {
+      "time": 67.8,
+      "kind": "tick",
+      "gain": 0.003999999999999962
+    },
+    {
+      "time": 68.1,
+      "kind": "tick",
+      "gain": 0.005999999999999943
+    },
     {
       "time": 68.4,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 68.7,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 69.0,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 69.3,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 69.6,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 69.9,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 70.2,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 70.5,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 70.8,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 71.1,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 71.4,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 71.7,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 72.0,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 72.3,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 72.6,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 72.9,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 73.2,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 73.5,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 73.8,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 74.1,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 74.4,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 74.7,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 75.0,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 75.3,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 75.6,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 75.9,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 76.2,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 76.5,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 76.8,
       "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 77.1,
       "kind": "tick",
-      "gain": 0.01
-    },
-    {
-      "time": 77.4,
-      "kind": "tick",
-      "gain": 0.01
+      "gain": 0.008
     },
     {
       "time": 6.6,
@@ -190,7 +200,7 @@
       "gain": 0.021
     },
     {
-      "time": 39.0,
+      "time": 40.05,
       "kind": "tick",
       "gain": 0.021
     },

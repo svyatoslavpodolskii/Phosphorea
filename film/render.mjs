@@ -1,6 +1,6 @@
 import {chromium} from '@playwright/test';
 import {createServer} from 'node:http';
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,copyFile} from 'node:fs/promises';
 import {resolve,extname,dirname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawn,execFileSync} from 'node:child_process';
@@ -26,12 +26,14 @@ try{
   await writeFile(resolve(out,'stills.json'),JSON.stringify(samples,null,2));console.log('Rendered',samples.length,'shot proofs.');
  }else{
   const ffmpeg=execFileSync('python',['-c','import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())'],{encoding:'utf8',env:{...process.env,PYTHONIOENCODING:'utf-8'}}).trim();
-  const target=resolve(out,'Phosphorea_Kinetic_Film_v7_1080x1920_60fps.mp4');
-  encoder=spawn(ffmpeg,['-y','-v','error','-f','image2pipe','-vcodec','mjpeg','-framerate',String(timeline.fps),'-i','pipe:0','-i',resolve(out,'master.wav'),'-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-colorspace','bt709','-color_primaries','bt709','-color_trc','bt709','-c:a','aac','-b:a','256k','-movflags','+faststart','-shortest','-metadata','title=Phosphorea — от одной мысли до целого мира','-metadata','artist=Svyatoslav Podolskii',target],{stdio:['pipe','inherit','inherit']});
+  const target=resolve(out,'Phosphorea_Kinetic_Film_v8_1080x1920_60fps.mp4');
+  // A score rebuild must not truncate audio being read by an active encode.
+  const audioSnapshot=resolve(out,'render-audio.wav');await copyFile(resolve(out,'master.wav'),audioSnapshot);
+  encoder=spawn(ffmpeg,['-y','-v','error','-f','image2pipe','-vcodec','mjpeg','-framerate',String(timeline.fps),'-i','pipe:0','-i',audioSnapshot,'-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-colorspace','bt709','-color_primaries','bt709','-color_trc','bt709','-c:a','aac','-b:a','256k','-movflags','+faststart','-shortest','-metadata','title=Phosphorea — от одной мысли до целого мира','-metadata','artist=Svyatoslav Podolskii',target],{stdio:['pipe','inherit','inherit']});
   const completed=once(encoder,'close');encoder.stdin.on('error',()=>{});
   const total=Math.round(timeline.duration*timeline.fps),started=Date.now();
   for(frame=0;frame<total;frame++){
-   const jpeg=await page.evaluate(n=>window.drawFrame(n),frame);if(!encoder.stdin.write(Buffer.from(jpeg,'base64')))await once(encoder.stdin,'drain');
+   const jpeg=await page.evaluate(n=>window.drawFrame(n),frame);if(encoder.exitCode!==null)throw Error('Encoder stopped before frame '+frame);if(!encoder.stdin.write(Buffer.from(jpeg,'base64')))await Promise.race([once(encoder.stdin,'drain'),completed.then(([code])=>{throw Error('Encoder stopped while writing: '+code);})]);
    if(frame%300===0)console.log(JSON.stringify({frame,total,seconds:Math.round((Date.now()-started)/1000)}));
   }
   encoder.stdin.end();const [code]=await completed;if(code!==0)throw Error('Encoder exited '+code);

@@ -1,6 +1,6 @@
 <script lang="ts">
  import type {Camera} from '../graph/model';
- import {folderCameraTransform,type FolderTerritory} from '../graph/folders';
+ import {folderCameraTransform,folderDisplayColor,type FolderTerritory} from '../graph/folders';
  let {territories,camera,width,height,activeId=null}:{territories:FolderTerritory[];camera:Camera;width:number;height:number;activeId?:string|null}=$props();
  // Paths are computed by the host on graph/position updates. Camera frames only
  // update this one SVG group transform; they never rebuild territory geometry.
@@ -14,7 +14,7 @@
 <svg class="folder-territories" {width} {height} aria-hidden="true">
  <g {transform}>
   {#each visible as territory (territory.id)}
-   <path d={territory.path} fill={territory.color} fill-opacity={activeId===territory.id ? .045 : .022} stroke={territory.color} stroke-opacity={activeId===territory.id ? .5 : .28} stroke-width="1.25" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+   <path d={territory.path} fill={folderDisplayColor(territory.color)} fill-opacity={activeId===territory.id ? .045 : .022} stroke={folderDisplayColor(territory.color)} stroke-opacity={activeId===territory.id ? .5 : .28} stroke-width="1.25" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
   {/each}
  </g>
 </svg>

@@ -4,6 +4,7 @@ export const ease=v=>1-(1-clamp(v))**3;
 export const smooth=v=>{v=clamp(v);return v*v*(3-2*v);};
 export const mix=(a,b,t)=>a+(b-a)*t;
 export const spring=v=>v<=0?0:1-Math.exp(-8*v)*Math.cos(12*v);
+export const folderColors=['#8ebcf2','#e0ba7d','#b8a0e8','#89caa5','#e59aa8','#7dc9cb'];
 export const color=['#f5f5f5','#d3d3d3','#eeeeee','#bcbcbc','#e4e4e4','#ffffff'];
 export const themes=[{bg:'#070707',surface:'#171717',ink:'#f7f7f7',muted:'#b8b8b8',edge:'#888888',accent:'#f2f2f2'},{bg:'#f1eee6',surface:'#faf8f3',ink:'#26352b',muted:'#677669',edge:'#a6afa0',accent:'#486655'},{bg:'#050608',surface:'#14171b',ink:'#f5f7fa',muted:'#bac2d0',edge:'#929daa',accent:'#a9d7ff'},{bg:'#0c1020',surface:'#141a30',ink:'#edf0ff',muted:'#9aabc9',edge:'#67749c',accent:'#c8c9ff'}];
 export const icons={note:'M6 3h9l3 3v15H6Z M14 3v5h4 M9 12h6 M9 16h6',idea:'M9 18h6 M10 21h4 M8 14a6 6 0 1 1 8 0l-1 3H9Z',person:'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a8 8 0 0 1 16 0v2',project:'M3 8h18v12H3Z M8 8V4h8v4 M3 13h18 M10 13v3h4v-3',folder:'M3 5h7l2 3h9v12H3Z',media:'M3 4h18v16H3Z M9 8l7 4-7 4Z',pin:'M9 3h6l-1 6 4 4v2H6v-2l4-4ZM12 15v7',check:'m5 12 4 4L19 6',search:'M16 10a6 6 0 1 1-12 0 6 6 0 0 1 12 0m-2 4 7 7',link:'m10 14 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m2 1 2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0'};
@@ -67,10 +68,10 @@ export function graph(c,t,{count=840,zoom=.68,cx=960,cy=530,theme=themes[0],labe
  if(morph<1)nodes=nodes.map((n,i)=>i<5?{...n,x:mix(world[0].x+little[i].x,n.x,morph),y:mix(world[0].y+little[i].y,n.y,morph),r:mix(little[i].r,n.r,morph),title:little[i].title,icon:little[i].icon}:n);
  c.save();c.translate(cx,cy);c.scale(zoom,zoom);
 
- if(territories)for(let g=0;g<6;g++){const root=nodes[groupRoots[g]];if(root.id<count)region(c,root.x,root.y,spreads[g][0]*1.05,spreads[g][1]*1.08,(colored?['#aec9ed','#e0c59d','#c6b4df','#a4cdbb','#dba6ab','#b7c8d8'][(g+build)%6]:color[g]),.4*territoryAlpha*clamp((count-root.id)/32));}
+ if(territories)for(let g=0;g<6;g++){const root=nodes[groupRoots[g]];if(root.id<count)region(c,root.x,root.y,spreads[g][0]*1.05,spreads[g][1]*1.08,(colored?folderColors[(g+build)%6]:color[g]),.85*territoryAlpha*clamp((count-root.id)/32));}
  for(const [ai,bi] of edges){if(ai>=count||bi>=count)continue;const a=nodes[ai],b=nodes[bi],active=focus<0||a.group===focus||b.group===focus;link(c,a,b,theme,(active?.42:.07)*edgeAlpha*clamp(count-Math.max(ai,bi)),(a.group===b.group?.9:1.35)/zoom,.025);}
- for(let i=0;i<Math.min(count,world.length);i++){const n=nodes[i],alpha=clamp(count-i)*(focus<0||n.group===focus?1:.16)*nodeAlpha;node(c,theme===themes[0]?n:{...n,color:theme.accent},{theme,alpha,label:false,glow:n.isRoot});}
- if(labels)for(let i=0;i<Math.min(count,nodes.length);i++){const n=nodes[i];if(!n.title||!(n.isRoot||zoom>1.1&&i%3===0))continue;c.save();c.globalAlpha*=clamp(count-i)*(focus<0||n.group===focus?1:.16);const size=23/zoom,w=Math.min(310/zoom,n.title.length*size*.58+22/zoom),y=n.y+n.r+25/zoom;round(c,n.x-w/2,y-19/zoom,w,38/zoom,12/zoom,theme.bg);text(c,n.title,n.x,y,size,theme.ink,500,'center');c.restore();}
+ for(let i=0;i<Math.min(count,world.length);i++){const n=nodes[i],alpha=clamp(count-i)*(focus<0||n.group===focus?1:.16)*nodeAlpha;node(c,colored&&n.isRoot?{...n,color:folderColors[(n.group+build)%6]}:theme===themes[0]?n:{...n,color:theme.accent},{theme,alpha,label:false,glow:n.isRoot});}
+ if(labels)for(let i=0;i<Math.min(count,nodes.length);i++){const n=nodes[i];if(!n.title||!(n.isRoot||zoom>1.1&&i%3===0))continue;c.save();c.globalAlpha*=clamp(count-i)*(focus<0||n.group===focus?1:.16);const size=23/zoom,w=Math.min(310/zoom,n.title.length*size*.58+22/zoom),y=n.y+n.r+25/zoom;const labelInk=colored&&n.isRoot?folderColors[(n.group+build)%6]:theme.ink;round(c,n.x-w/2,y-19/zoom,w,38/zoom,12/zoom,theme.bg,colored&&n.isRoot?labelInk:undefined);text(c,n.title,n.x,y,size,labelInk,500,'center');c.restore();}
  c.restore();
 }
 export function region(c,x,y,rx,ry,ink,alpha=1){c.save();c.globalAlpha*=alpha;c.beginPath();for(let i=0;i<=80;i++){const a=i/80*TAU,r=1+.045*Math.sin(a*3)+.025*Math.cos(a*5);const px=x+Math.cos(a)*rx*r,py=y+Math.sin(a)*ry*r;i?c.lineTo(px,py):c.moveTo(px,py);}c.closePath();c.fillStyle=ink+'0b';c.fill();c.strokeStyle=ink+'70';c.lineWidth=1.6;c.stroke();c.restore();}

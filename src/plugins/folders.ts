@@ -20,7 +20,7 @@ export interface FolderController {
  focus:(folderId:string|null)=>Promise<FolderFocus|null>;
  refresh:()=>Promise<void>;
 }
-export const FOLDER_COLORS=['#75aee8','#b398dd','#80b78b','#d3ae6d','#d991a0','#68bfc0'];
+export const FOLDER_COLORS=['#eeeeee','#75aee8','#b398dd','#80b78b','#d3ae6d','#d991a0','#68bfc0'];
 
 /** New contextual descendants inherit memberships inside the public draft
  * transaction. No async event writes, private Core access or link side effects. */
@@ -61,7 +61,7 @@ export function createFoldersPlugin(host:FolderHost={}) : {plugin:Plugin;control
    const atoms=await api.atoms.list(),byId=new Map(atoms.map(atom=>[atom.id,atom]));
    if(roots.some(id=>!byId.has(id)))throw Error('Выделение изменилось. Выберите заметки заново.');
    const current=projectFolders({atoms,links:[]});if(current.folders.length>=MAX_FOLDERS)throw Error(`Можно создать не более ${MAX_FOLDERS} папок.`);
-   color??=FOLDER_COLORS[current.folders.length%FOLDER_COLORS.length];if(!/^#[0-9a-f]{6}$/i.test(color))throw Error('Выберите цвет в формате #RRGGBB.');
+   color??=FOLDER_COLORS[0];if(!/^#[0-9a-f]{6}$/i.test(color))throw Error('Выберите цвет в формате #RRGGBB.');
    // One ordinary atom update is atomic even for a large lasso. No moves, copies,
    // extra nodes or per-selected-note writes; definitions contain the seed IDs.
    const owner=byId.get(roots[0])!;

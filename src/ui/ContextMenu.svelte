@@ -1,4 +1,5 @@
 ﻿<script lang="ts">
+ import {folderDisplayColor} from '../graph/folders';
  import {surface} from './surfaces';
  import {onMount} from 'svelte';
  import type {Atom,AtomState,Appearance} from '../core/model';
@@ -21,7 +22,7 @@
   <div class="importance-control"><span>Важность</span><div role="group" aria-label="Важность">{#each ['Обычный','Важный','Ключевой'] as name,i}<button disabled={busy} aria-pressed={i===importance} onclick={()=>importance=i}>{name}</button>{/each}</div></div>
   <AppearancePicker bind:value={appearance} title={atom.title} defaultShape={atom.type==='task'?'square':'circle'} defaultIcon={({task:'✓',person:'♙',project:'◈',idea:'✦'} as Record<string,string>)[atom.type]||'·'}/><button class="primary" disabled={busy} onclick={()=>run(()=>onappearance($state.snapshot(appearance),importance))}>{busy?'Сохраняем…':'Готово'}</button>
  {:else if panel==='folders'}
-  <div class="folder-choices">{#each folders as folder}<button disabled={busy} aria-pressed={folder.selected} onclick={()=>run(()=>onfolder?.(folder.id,!folder.selected))}><i style:background={folder.color}></i><span>{folder.name}{#if folder.mixed}<small>Часть выделения</small>{/if}</span><svg viewBox="0 0 20 20" aria-hidden="true">{#if folder.selected}<path d="m4 10 4 4 8-9"/>{:else}<path d="M10 4v12M4 10h12"/>{/if}</svg></button>{/each}</div>{#if onnewfolder}<button disabled={busy} onclick={onnewfolder}>Создать папку из выделения</button>{/if}
+  <div class="folder-choices">{#each folders as folder}<button disabled={busy} aria-pressed={folder.selected} onclick={()=>run(()=>onfolder?.(folder.id,!folder.selected))}><i style:background={folderDisplayColor(folder.color)}></i><span>{folder.name}{#if folder.mixed}<small>Часть выделения</small>{/if}</span><svg viewBox="0 0 20 20" aria-hidden="true">{#if folder.selected}<path d="m4 10 4 4 8-9"/>{:else}<path d="M10 4v12M4 10h12"/>{/if}</svg></button>{/each}</div>{#if onnewfolder}<button disabled={busy} onclick={onnewfolder}>Создать папку из выделения</button>{/if}
  {:else if panel==='delete'}
   <p class="delete-explanation">{count>1?`Удалить ${count} атомов и их связи?`:'Удалить атом и его связи?'} Локальная копия останется в настройках.</p><button class="danger-button" disabled={busy} onclick={()=>run(ondelete)}>Удалить</button><button class="quiet-button" onclick={back}>Отмена</button>
  {:else}

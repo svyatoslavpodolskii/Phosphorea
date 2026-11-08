@@ -1,6 +1,7 @@
 <script lang="ts">
  import {onDestroy} from 'svelte';
  import type {FolderSummary} from '../graph/folders';
+ import {folderDisplayColor} from '../graph/folders';
  import {FOLDER_COLORS} from '../plugins/folders';
  import FolderColors from './FolderColors.svelte';
  let {folders,selectionIds=[],activeId=$bindable(null),drag=null,removeIds=[],oncreate,onfocus,onremove,onadd,onupdate}:{
@@ -26,7 +27,7 @@
  /** Host context-action callback: strip?.beginCreate(rawAtomIds). */
  export function beginCreate(selected:readonly string[]){
   if(busy)return;collapsed=false;ids=[...new Set(selected)];if(!ids.length)return;
-  name='';color=FOLDER_COLORS[folders.length%FOLDER_COLORS.length];error='';creating=true;
+  name='';color=FOLDER_COLORS[0];error='';creating=true;
  }
  $effect(()=>{if(creating)input?.focus();});
  async function create(event:SubmitEvent){event.preventDefault();if(busy)return;busy=true;error='';
@@ -43,7 +44,7 @@
   <button data-folder-id={drag?'__remove__':undefined} class:remove-target={Boolean(drag)} class:drop-target={dragTarget==='__remove__'} class:chosen={!drag&&activeId===null} aria-label={drag?(activeId?'Убрать из текущей папки':'Убрать из всех папок'):'Все'} aria-pressed={!drag&&activeId===null} onclick={()=>{if(!drag)void focus(null);}}>{#if drag}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>{:else}Все{/if}</button>
   {#each folders as folder (folder.id)}
    <button data-folder-id={folder.id} class:remove-target={Boolean(drag)&&removeIds.includes(folder.id)} class:drop-target={dragTarget===folder.id} class:chosen={activeId===folder.id} aria-pressed={activeId===folder.id} title={`${folder.name}: ${folder.count}`} onpointerdown={e=>{pressPoint={x:e.clientX,y:e.clientY};held=false;hold=setTimeout(()=>{held=true;showContext(folder.id);},550);}} onpointermove={e=>{if(Math.hypot(e.clientX-pressPoint.x,e.clientY-pressPoint.y)>10)clearTimeout(hold);}} onpointerup={()=>clearTimeout(hold)} onpointercancel={()=>clearTimeout(hold)} onpointerleave={()=>clearTimeout(hold)} oncontextmenu={e=>{e.preventDefault();held=true;showContext(folder.id);}} onclick={()=>{if(!held)void focus(folder.id);held=false;}}>
-    <i style:background={folder.color} style:color={folder.color} aria-hidden="true"></i><span>{folder.name}</span>{#if drag}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d={removeIds.includes(folder.id)?"m6 6 12 12M18 6 6 18":"M12 5v14M5 12h14"}/></svg>{:else}<small>{folder.count}</small>{/if}
+    <i style:background={folderDisplayColor(folder.color)} style:color={folderDisplayColor(folder.color)} aria-hidden="true"></i><span>{folder.name}</span>{#if drag}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d={removeIds.includes(folder.id)?"m6 6 12 12M18 6 6 18":"M12 5v14M5 12h14"}/></svg>{:else}<small>{folder.count}</small>{/if}
    </button>
   {/each}
  </div>

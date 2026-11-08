@@ -8,7 +8,7 @@ ROOT=Path(__file__).parent;OUT=ROOT/'output';OUT.mkdir(exist_ok=True)
 timeline=json.loads((ROOT/'timeline.json').read_text(encoding='utf-8'));cursor=0
 for shot in timeline['shots']:shot['start']=cursor;cursor+=shot['duration']
 shots={shot['id']:shot for shot in timeline['shots']}
-T=lambda name:shots[name]['start']
+T=lambda name:round(shots[name]['start'],6)
 B=T('02_spawn');GROW=T('22_growth');SILENCE=T('25_silence');REVEAL=T('26_world');LOGO=T('27_logo');END=T('28_end')
 SR=48000;SECONDS=cursor;N=round(SR*SECONDS);FF=imageio_ffmpeg.get_ffmpeg_exe()
 rng=np.random.default_rng(80271)
@@ -48,28 +48,34 @@ def click(at,weight=.04,kind='tick'):
 
 # One evolving score. Its rhythmic layer releases before the last rapid cut;
 # acoustic tails bridge the black frame instead of being chopped at the edit.
-note(T('01_hello')+.12,62,3.6,.14,pan=-.08)
+note(T('01_hello'),62,3.6,.14,pan=-.08)
 note(T('title_02_spawn'),50,1.8,.09,pan=-.08)
 note(T('title_02_spawn')+.6,57,1.6,.065,pan=.08)
 chords=[[50,57,62,65],[46,53,58,62],[48,55,60,64],[45,52,57,61]]
-for k,at in enumerate(np.arange(B,GROW,.6)):
- chord=chords[(k//8)%4];pitch=chord[[2,1,3,2,0,2,1,3][k%8]]+12
- note(float(at),pitch,2,.085 if at<T('12_kanban') else .11,pan=(-.22,.17)[k%2])
- if at>=T('06_link') and k%2==0:note(float(at),chord[0],.8,.06,'cello',-.1)
- if at>=T('14_search'):note(float(at+.3),chord[(k+1)%4]+24,1.2,.036,pan=.30)
-for k,at in enumerate(np.arange(GROW,SILENCE-1.2,.3)):
- chord=chords[(k//8)%4];gain=.09+min(.045,k*.0013)
- note(float(at),chord[[0,2,1,3,2,1,3,2][k%8]]+12,2.2,gain,pan=(-.25,.25)[k%2])
- if k%2==0:note(float(at),chord[0],1.1,.075,'cello',-.13)
- if at>=T('24_acceleration')-2:note(float(at+.15),chord[(k+2)%4]+24,1.2,.035,pan=.35)
- if at<SILENCE-1.8:click(float(at),.01)
+# A single clock and chord progression across every title and scene. The old
+# title accents repeated D over unrelated chords; growth restarted the harmony
+# halfway through a phrase. Neither picture cuts nor scene IDs reset this score.
+for half,at in enumerate(np.arange(B,SILENCE-1.2,.3)):
+ at=round(float(at),6)
+ # One quarter-note pickup places the growth reveal on a harmonic downbeat.
+ beat=half//2+1;chord=chords[(beat//8)%4]
+ density=float(np.clip((at-(GROW-1.2))/1.2,0,1))
+ gain=.085+.025*float(np.clip((at-B)/48,0,1))+.015*density
+ if half%2==0:
+  pitch=chord[[2,1,3,2,0,2,1,3][beat%8]]+12
+  note(float(at),pitch,1.65,gain,pan=(-.22,.17)[beat%2])
+  if at>=B+9.6 and (beat%2==0 or at>=GROW):note(float(at),chord[0],1,.06+.025*density,'cello',-.1)
+ elif density>0:
+  note(float(at),chord[(beat+1)%4]+12,1.1,.055*density,pan=.23)
+ if at>=GROW:
+  # Restore the driving sixteenth layer, in the SAME ongoing chord and clock.
+  note(float(at+.15),chord[(half+2)%4]+24,1.05,.028+.008*min(1,(at-GROW)/4.8),pan=(-.32,.32)[half%2])
+ if density>.1 and at<SILENCE-1.8:click(float(at),.008*density)
 
 def action(name,offset=0):return T(name)+shots[name].get('lead',0)+offset
-anchors={'02_spawn':[0,.6,1.2,1.8,2.4],'04_physics_control':[.6],'06_link':[.6],'09_folder':[0],'10_editor':[.6,1.2,1.8,2.4],'12_kanban':[.6,1.8],'15_pin':[0],'17_folder_navigation':[.6,2.1]}
+anchors={'02_spawn':[0,.6,1.2,1.8,2.4],'04_physics_control':[1.65],'06_link':[.6],'09_folder':[0],'10_editor':[.6,1.2,1.8,2.4],'12_kanban':[.6,1.8],'15_pin':[0],'17_folder_navigation':[.6,2.1]}
 for name,points in anchors.items():
  for point in points:click(action(name,point),.021)
-for shot in timeline['shots']:
- if shot['module']=='title':note(shot['start'],62,1.1,.07,pan=-.1)
 for i in range(6):click(action('14_search',.3+i*.15),.014)
 click(action('14_search',1.5),.025)
 for point in [.3,1.2]:click(action('03_living_drag',point),.022,'air')
