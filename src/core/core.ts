@@ -37,7 +37,7 @@ export class Core {
  if(consumeCheckpoint)ops.push({kind:'setting',key:EDITOR_CHECKPOINT,value:null});
  const effects=await this.drafts.prepare({atom,before,data:this.data,parent,add:additions,remove,rejected:rejection.targets});
  atom.properties=effects.properties;additions.push(...effects.add);for(const id of effects.remove)ops.push({kind:'unlink',id});
- if(autoPlace){const placement:PlacementInput={data:structuredClone(this.data),parent,atom,targets:[...new Set([...(parent?[parent]:[]),...additions.map(l=>l.to)])]};const point=await (this.placementProvider?.(placement)??placeAtom(placement));if(!Number.isFinite(point.x)||!Number.isFinite(point.y))throw Error('Invalid layout position');Object.assign(atom,point);}
+ if(autoPlace){const placement:PlacementInput={data:structuredClone(this.data),parent,atom:structuredClone(atom),targets:[...new Set([...(parent?[parent]:[]),...additions.map(l=>l.to)])]};const point=await (this.placementProvider?.(placement)??placeAtom(placement));if(!Number.isFinite(point.x)||!Number.isFinite(point.y))throw Error('Invalid layout position');atom.x=point.x;atom.y=point.y;}
  for(const l of additions)ops.push({kind:'link',link:makeLink(atom.id,l.to,l.relation,l.source||'manual')});await this.commit(ops);this.emit(before?'atom:update':'atom:create',atom);for(const op of ops){if(op.kind==='link')this.emit('link:create',op.link);if(op.kind==='unlink')this.emit('link:delete',{id:op.id});}return atom;
  });}
  create(input:Partial<Atom>&{title:string},parent?:string){return this.saveDraft(input,[],[],parent);}

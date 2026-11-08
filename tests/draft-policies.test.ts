@@ -21,9 +21,9 @@ const manifest={id:'test.drafts',name:'Draft policy',version:'1',apiVersion:1,pe
 it('places new notes after draft policies supply links, and preserves explicitly chosen positions',async()=>{
  const h=await setup();try{
   const parent=await h.core.create({title:'Parent',x:100,y:100}),other=await h.core.create({title:'Other',x:100,y:400});
-  const calls:any[]=[];h.core.placementProvider=input=>{calls.push(structuredClone(input));return{x:320,y:240};};
+  const calls:any[]=[];h.core.placementProvider=input=>{calls.push(structuredClone(input));input.atom!.title='Provider must not overwrite text';return{x:320,y:240,title:'Extra fields must not be applied'};};
   const off=h.core.drafts.register({id:'test.policy',name:'Add link',prepare:()=>({add:[{to:other.id,relation:'related'}]})});
-  const child=await h.core.create({title:'Child'},parent.id);expect(child).toMatchObject({x:320,y:240});
+  const child=await h.core.create({title:'Child'},parent.id);expect(child).toMatchObject({x:320,y:240,title:'Child'});
   expect(calls).toHaveLength(1);expect(calls[0].targets).toEqual([parent.id,other.id]);expect(calls[0].atom.title).toBe('Child');
   await h.core.create({title:'Explicit',x:-50,y:-60},parent.id);expect(calls).toHaveLength(1);
   const before=structuredClone(h.core.data);h.core.placementProvider=()=>({x:NaN,y:0});
