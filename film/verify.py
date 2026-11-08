@@ -5,7 +5,7 @@ import imageio_ffmpeg
 
 P=Path(__file__).parent
 timeline=json.loads((P/'timeline.json').read_text(encoding='utf-8'))
-video=P/'output'/'Phosphorea_Kinetic_Film_v6_1080x1920_60fps.mp4'
+video=P/'output'/'Phosphorea_Kinetic_Film_v7_1080x1920_60fps.mp4'
 ff=imageio_ffmpeg.get_ffmpeg_exe()
 def run(args):
  r=subprocess.run([ff,*args],capture_output=True)

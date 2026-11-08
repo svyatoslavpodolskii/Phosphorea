@@ -11,9 +11,11 @@ A ten-minute invitation contains the peer ID, pinned fingerprint, a CSPRNG
 The app removes the fragment immediately on entry. Do not log invitation URLs.
 Showing/scanning is symmetric in product terms; host/guest are connection roles.
 
-Trust also pins the remote workspace's random scope ID. Reconnecting a familiar
-device with a different workspace cannot silently merge two previously unrelated
-vaults: it requires a fresh explicit QR pairing. Scope IDs are transcript-bound.
+Trust is device-wide and pins both the remote public key and approved incoming/outgoing
+workspace scope IDs. Signed-key authentication is followed by an encrypted manifest.
+An expanded selection requires fresh consent before any records are exported.
+The current maps are explicitly merged on first pairing; additional scopes are kept
+as separate workspaces. Scope-to-local-workspace mappings are persisted per pair.
 
 Each side creates an ephemeral ECDH P-256 key and a 256-bit nonce. Both first
 exchange SHA-256 commitments to their complete hello; neither reveals the hello
@@ -30,7 +32,9 @@ keys for each direction and a 36-bit short authentication string displayed as
 six symbols from a fixed 64-emoji alphabet. Each side sends an encrypted proof:
 an ECDSA-SHA256 signature of the full transcript. Identity pinning, signature and
 key confirmation precede any synchronization data. Unknown identities require
-local confirmation on BOTH devices. Known identities authenticate the stored key
+local confirmation on each device with existing data. An entirely empty device
+automatically accepts after authenticated manifest exchange; the source still
+requires emoji verification. Known identities authenticate the stored key
 automatically; no server-issued identity or room-admin privilege is accepted.
 
 Every encrypted frame carries a strictly increasing 64-bit sequence number.

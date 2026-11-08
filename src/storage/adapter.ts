@@ -16,6 +16,11 @@ export class SQLiteAdapter implements StorageAdapter {
  }
  snapshot(){return this.call<Snapshot>('snapshot');}
  syncExport(){return this.call<import('../sync/records').SyncRecord[]>('syncExport');}
+ syncWorkspaces(){return this.call<import('../sync/workspaces').SyncWorkspace[]>('syncWorkspaces');}
+ syncExportWorkspaces(ids:string[]){return this.call<import('../sync/workspaces').WorkspaceTransfer[]>('syncExportWorkspaces',ids);}
+ syncApplyWorkspaces(transfers:unknown,approved:import('../sync/workspaces').SyncWorkspace[],mapping:Record<string,string>){return trackSave(()=>this.call<{conflicts:number;mapping:Record<string,string>}>('syncApplyWorkspaces',transfers,approved,mapping));}
+ syncGetGlobal<T>(key:string){return this.call<T|undefined>('syncGetGlobal',key);}
+ syncSetGlobal(key:string,value:unknown){return this.call<void>('syncSetGlobal',key,value);}
  syncApply(records:unknown){return trackSave(()=>this.call<{received:number;conflicts:number}>('syncApply',records));}
  syncConflicts(){return this.call<import('../sync/records').SyncRecord[]>('syncConflicts');}
  syncResolve(key:string,expected:string,choice:string){return trackSave(()=>this.call<void>('syncResolve',key,expected,choice));}

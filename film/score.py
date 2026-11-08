@@ -65,17 +65,19 @@ for k,at in enumerate(np.arange(GROW,SILENCE-1.2,.3)):
  if at<SILENCE-1.8:click(float(at),.01)
 
 def action(name,offset=0):return T(name)+shots[name].get('lead',0)+offset
-anchors={'02_spawn':[.65,1.10,1.55,2.00],'04_physics_control':[.42],'06_link':[.6],'09_folder':[.22],'10_editor':[.9,1.8,2.7,3.6],'12_kanban':[.65,1.8],'15_pin':[.15],'17_folder_navigation':[.6,2.1]}
+anchors={'02_spawn':[0,.6,1.2,1.8,2.4],'04_physics_control':[.6],'06_link':[.6],'09_folder':[0],'10_editor':[.6,1.2,1.8,2.4],'12_kanban':[.6,1.8],'15_pin':[0],'17_folder_navigation':[.6,2.1]}
 for name,points in anchors.items():
  for point in points:click(action(name,point),.021)
-for i in range(6):click(action('14_search',.30+i*.12),.014)
-click(action('14_search',1.65),.025)
-click(action('03_living_drag',1.22),.022,'air')
+for shot in timeline['shots']:
+ if shot['module']=='title':note(shot['start'],62,1.1,.07,pan=-.1)
+for i in range(6):click(action('14_search',.3+i*.15),.014)
+click(action('14_search',1.5),.025)
+for point in [.3,1.2]:click(action('03_living_drag',point),.022,'air')
 for i in range(6):click(action('11_customization',i*.6),.017)
-click(action('10_suggestions',1.6),.024)
-for name in ['03_living_drag','06_link','08_lasso','17_folder_navigation']:click(action(name,.1),.028,'air')
-for point in [.6,1.9,3.7]:click(action('21_sync',point),.017)
-click(action('21_sync',3.8),.018,'air')
+click(action('10_suggestions',1.2),.024)
+for name in ['06_link','08_lasso','17_folder_navigation']:click(action(name,0),.02,'air')
+for point in [.6,1.8,3.6]:click(action('21_sync',point),.017)
+click(action('21_sync',3.9),.018,'air')
 
 # Seamless musical release. Keep a low spatial tail through the brief black.
 release_start=SILENCE-1.4

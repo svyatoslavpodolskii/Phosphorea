@@ -10,7 +10,7 @@
 **[Синхронизация своих устройств через QR, без облачного хранилища](docs/SYNC.md)** —
 проверка пары по эмодзи, двусторонний обмен и сохранение конфликтующих правок.
 
-[Вертикальный тизер со сценой синхронизации](https://github.com/svyatoslavpodolskii/Phosphorea/releases/download/v0.9.0/Phosphorea_Kinetic_Film_v6_1080x1920_60fps.mp4)
+[Вертикальный тизер со сценой синхронизации](https://github.com/svyatoslavpodolskii/Phosphorea/releases/download/v0.9.1/Phosphorea_Kinetic_Film_v7_1080x1920_60fps.mp4)
 
 **[Исходники ролика](film/README.md)** хранятся в `film/` вместе с проектом.
 Готовое видео доступно по ссылке выше.
