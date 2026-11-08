@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {makeAtom} from '../../src/core/model';
 import {importMap,openSettings,closeSettings} from './helpers';
 test.use({viewport:{width:390,height:844}});
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.setItem('phosphora:sound-muted','false'));});
 test('canvas waits for tap intent, panning has air and holding has a wide first wave',async({page})=>{
  await page.addInitScript(()=>{const Native=window.AudioContext;(window as any).__hits=[];(window as any).__air=0;window.AudioContext=class extends Native{createBufferSource(){const source=super.createBufferSource(),start=source.start.bind(source);source.start=((...args:Parameters<AudioBufferSourceNode['start']>)=>{if(source.loop)(window as any).__air++;else(window as any).__hits.push(source.buffer?.duration);start(...args);}) as typeof source.start;return source;}};});
  await page.goto('/');await page.getByRole('button',{name:'Меню карты',exact:true}).click();await page.keyboard.press('Escape');await page.waitForTimeout(250);await page.evaluate(()=>(window as any).__hits=[]);await page.mouse.move(100,650);await page.mouse.down();expect(await page.evaluate(()=>(window as any).__hits.length)).toBe(0);await page.mouse.move(230,650,{steps:10});await page.mouse.up();expect(await page.evaluate(()=>(window as any).__hits.length)).toBe(0);expect(await page.evaluate(()=>(window as any).__air)).toBeGreaterThan(0);

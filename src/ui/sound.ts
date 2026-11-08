@@ -1,47 +1,43 @@
 import {MotionAudio,roomImpulse,type MotionKind} from './motion-audio';
 import type {Plugin} from '../plugins/api';
 export type SoundCue='tap'|'detent'|'hold'|'pulse'|'drop'|'move'|'lasso'|'open';
-import pluckUrl from '../assets/audio/pluck_001.wav?url';
-import glassUrl from '../assets/audio/glass_001.wav?url';
-import tickUrl from '../assets/audio/tick_001.wav?url';
-const recorded=new Map<string,AudioBuffer>();
-let loading:Promise<void>|undefined;
 let contactRoom:ConvolverNode|undefined;
-function room(ctx:AudioContext){if(!contactRoom){contactRoom=ctx.createConvolver();contactRoom.normalize=false;contactRoom.buffer=roomImpulse(ctx);const wet=ctx.createGain();wet.gain.value=.12;contactRoom.connect(wet).connect(ctx.destination);}return contactRoom;}
-async function loadRecorded(){if(!context)return;const ctx=context;loading??=Promise.all([['tap',pluckUrl],['hold',glassUrl],['detent',tickUrl]].map(async([key,url])=>{const response=await fetch(url);if(!response.ok)throw Error('Audio unavailable');recorded.set(key,await ctx.decodeAudioData(await response.arrayBuffer()));})).then(()=>{},()=>{loading=undefined;});await loading;}
-
-let muted=false;try{muted=localStorage.getItem('phosphora:sound-muted')==='true';}catch{}
-let palette='soft',enabled=false,volume=.35,context:AudioContext|undefined,motion:MotionAudio|undefined,motionHeld=false,lastZoom=-Infinity;
+function room(ctx:AudioContext){if(!contactRoom){contactRoom=ctx.createConvolver();contactRoom.normalize=false;contactRoom.buffer=roomImpulse(ctx);const wet=ctx.createGain();wet.gain.value=.17;contactRoom.connect(wet).connect(ctx.destination);}return contactRoom;}
+let muted=true;try{muted=localStorage.getItem('phosphora:sound-muted')!=='false';}catch{}
+let enabled=false,volume=.35,context:AudioContext|undefined,motion:MotionAudio|undefined,motionHeld=false,lastZoom=-Infinity;
 export function motionSound(kind:MotionKind,speed:number,direction=1){if(!context||context.state!=='running'||muted||!enabled||document.hidden)return;const now=performance.now();if(kind==='zoom')lastZoom=now;else if(now-lastZoom<120)return;try{motion??=new MotionAudio(context);motion.setHeld(motionHeld);motion.update(kind,speed,volume,direction);}catch{}}
 export function stopMotionSound(){motionHeld=false;motion?.setHeld(false);motion?.stop();}
 const last=new Map<SoundCue,number>();
 export const soundInterval=(cue:SoundCue)=>cue==='detent'?160:cue==='move'||cue==='lasso'?110:cue==='open'?180:70;
 const buffers=new Map<SoundCue,AudioBuffer>(),listeners=new Set<()=>void>(),voices=new Set<AudioBufferSourceNode>();
-export const soundState=()=>({muted,enabled,volume,palette});
+export const soundState=()=>({muted,enabled,volume});
 export function observeSound(fn:()=>void){listeners.add(fn);fn();return()=>{listeners.delete(fn);};}
 function changed(){for(const fn of listeners)fn();}
-async function unlock(){if(muted||!enabled||document.hidden)return;try{context??=new AudioContext({latencyHint:'interactive'});if(context.state==='suspended')await context.resume();if(palette==='glass')void loadRecorded();}catch{}}
+async function unlock(){if(muted||!enabled||document.hidden)return;try{context??=new AudioContext({latencyHint:'interactive'});if(context.state==='suspended')await context.resume();}catch{}}
 /** Never replay an old contact once a slow browser/audio device wakes up. */
 export function gestureSound(cue:SoundCue){if(context?.state==='running'){playSound(cue);return;}const started=performance.now();void unlock().then(()=>{if(performance.now()-started<120)playSound(cue);});}
 export function setMuted(value:boolean){muted=value;try{localStorage.setItem('phosphora:sound-muted',String(value));}catch{}if(value)stopMotionSound();if(value)for(const voice of voices)try{voice.stop();}catch{}changed();if(!value)void unlock().then(()=>playSound('tap'));}
-/** Stable partials and soft envelopes, adapted from vmeste's sound garden.
- * No frequency sweep, impact noise or sharp oscillator switch-on. */
+/** Mechanical contact transients; only the long wave uses stable low partials. */
 export function contactSamples(cue:SoundCue,sampleRate:number){
  if(cue==='move'||cue==='lasso')return new Float32Array(0);
- const sustained=cue==='hold'||cue==='pulse',duration=sustained?.58:cue==='detent'?.045:.16;
- const samples=new Float32Array(Math.ceil(sampleRate*duration));
- const frequency=sustained?220:cue==='detent'?880:cue==='drop'?440:523.251;
- const attack=sustained?.065:cue==='detent'?.004:.009;
- for(let i=0;i<samples.length;i++){const t=i/sampleRate,progress=t/duration;
-  const envelope=(1-Math.exp(-t/attack))*Math.exp(-t/(duration*.23))*(1-progress)**2;
-  samples[i]=(Math.sin(2*Math.PI*frequency*t)+.12*Math.sin(4*Math.PI*frequency*t)+.04*Math.sin(6*Math.PI*frequency*t))*envelope*(cue==='pulse'?.095:sustained?.16:.23);
+ const wave=cue==='hold'||cue==='pulse',duration=wave?.85:cue==='detent'?.024:.045,samples=new Float32Array(Math.ceil(sampleRate*duration));
+ let seed=cue==='detent'?71:41,low=0;
+ for(let i=0;i<samples.length;i++){const t=i/sampleRate;
+  if(wave){const envelope=(1-Math.exp(-t/.075))*Math.exp(-t/.24)*(1-t/duration)**2;samples[i]=(Math.sin(2*Math.PI*140*t)+.20*Math.sin(2*Math.PI*280*t)+.07*Math.sin(2*Math.PI*420*t))*envelope*(cue==='pulse'?.08:.13);}
+  else{
+   // A mechanical escapement: two tiny broadband contacts with a damped metal
+   // body, not a pitched note or a low-frequency impact.
+   seed=(seed*1664525+1013904223)>>>0;const noise=seed/4294967296*2-1;low=.45*low+.55*noise;let value=0;
+   for(const [at,weight] of [[0,1],[cue==='detent'?.005:.009,.42]]){const q=t-at;if(q<0)continue;const envelope=Math.min(1,q/.0007)*Math.exp(-q/.0035);value+=((noise-low)*.85+.15*Math.sin(2*Math.PI*2400*q)*Math.exp(-q/.0015))*envelope*weight;}
+   samples[i]=value*(cue==='detent'?.15:.22)*(1-t/duration);
+  }
  }return samples;
 }
-export async function previewSound(cue:SoundCue){await unlock();if(palette==='glass')await loadRecorded();playSound(cue);}
+export async function previewSound(cue:SoundCue){await unlock();playSound(cue);}
 export async function prepareSound(){await unlock();}
 export function playSound(cue:SoundCue){const now=performance.now();if(cue==='move'||cue==='lasso')return;if(!context||context.state!=='running'||muted||!enabled||!volume||document.hidden||now-(last.get(cue)??-Infinity)<soundInterval(cue))return;last.set(cue,now);
- try{const recordedKey=cue==='pulse'?'hold':cue==='drop'||cue==='open'?'tap':cue;let buffer=palette==='glass'?recorded.get(recordedKey):undefined;buffer??=buffers.get(cue);if(!buffer){const samples=contactSamples(cue,context.sampleRate);buffer=context.createBuffer(1,samples.length,context.sampleRate);buffer.getChannelData(0).set(samples);buffers.set(cue,buffer);}
-  if(voices.size>=3)return;const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=volume*(palette==='glass'?.22:1)*(cue==='pulse'?.6:1);source.connect(gain).connect(context.destination);if(palette==='soft')gain.connect(room(context));voices.add(source);source.onended=()=>{voices.delete(source);source.disconnect();gain.disconnect();};source.start();
+ try{let buffer=buffers.get(cue);if(!buffer){const samples=contactSamples(cue,context.sampleRate);buffer=context.createBuffer(1,samples.length,context.sampleRate);buffer.getChannelData(0).set(samples);buffers.set(cue,buffer);}
+  if(voices.size>=3)return;const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=volume*(cue==='pulse'?.65:1);source.connect(gain).connect(context.destination);gain.connect(room(context));voices.add(source);source.onended=()=>{voices.delete(source);source.disconnect();gain.disconnect();};source.start();
  }catch{}
 }
 export function installSoundFeedback(){let start:{id:number;x:number;y:number;time:number;canvas:boolean;moved:boolean}|null=null;let pointerContact=-Infinity;const canvasPointers=new Set<number>();
@@ -57,4 +53,4 @@ export function installSoundFeedback(){let start:{id:number;x:number;y:number;ti
  document.addEventListener('visibilitychange',visibility);document.addEventListener('pointerdown',down,true);document.addEventListener('pointerup',up,true);document.addEventListener('pointermove',move,true);document.addEventListener('pointercancel',cancel,true);document.addEventListener('click',click,true);document.addEventListener('change',change,true);document.addEventListener('keydown',key,true);
  return()=>{stopMotionSound();document.removeEventListener('visibilitychange',visibility);document.removeEventListener('pointerdown',down,true);document.removeEventListener('pointerup',up,true);document.removeEventListener('pointermove',move,true);document.removeEventListener('pointercancel',cancel,true);document.removeEventListener('click',click,true);document.removeEventListener('change',change,true);document.removeEventListener('keydown',key,true);};
 }
-export const soundPlugin:Plugin={manifest:{id:'builtin.sound',name:'Звуковой отклик',description:'Мягкие касания, звучащие волны и воздушное движение. Два варианта с прослушиванием.',version:'1.0.0',apiVersion:1,permissions:['settings'],settings:[{key:'volume',label:'Громкость отклика',type:'range',min:0,max:1,step:.05,default:.35},{key:'palette',label:'Звучание касаний',type:'select',default:'soft',options:[{value:'soft',label:'Мягкие ноты · vmeste'},{value:'glass',label:'Стекло · Kenney'}]}]},async activate(api){let alive=true,revision=0;async function refresh(){const version=++revision,v=await api.settings.get<number>('volume'),p=await api.settings.get<string>('palette');if(alive&&version===revision){volume=typeof v==='number'&&Number.isFinite(v)?Math.max(0,Math.min(1,v)):.35;palette=p==='glass'?'glass':'soft';enabled=true;if(palette==='glass')void unlock();changed();}}const off=api.events.on('preferences:plugin-setting',e=>e.plugin==='builtin.sound'?refresh():undefined);try{await refresh();}catch(error){off();throw error;}return()=>{alive=false;revision++;enabled=false;stopMotionSound();off();for(const voice of voices)try{voice.stop();}catch{}changed();};}};
+export const soundPlugin:Plugin={manifest:{id:'builtin.sound',name:'Звуковой отклик',description:'Механические щелчки, глубокие волны и тихое пространственное движение. Звук включается кнопкой на карте.',version:'1.0.0',apiVersion:1,permissions:['settings'],settings:[{key:'volume',label:'Громкость отклика',type:'range',min:0,max:1,step:.05,default:.35}]},async activate(api){let alive=true,revision=0;async function refresh(){const version=++revision,v=await api.settings.get<number>('volume');if(alive&&version===revision){volume=typeof v==='number'&&Number.isFinite(v)?Math.max(0,Math.min(1,v)):.35;enabled=true;changed();}}const off=api.events.on('preferences:plugin-setting',e=>e.plugin==='builtin.sound'?refresh():undefined);try{await refresh();}catch(error){off();throw error;}return()=>{alive=false;revision++;enabled=false;stopMotionSound();off();for(const voice of voices)try{voice.stop();}catch{}changed();};}};

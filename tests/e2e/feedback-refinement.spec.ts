@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openSettings,closeSettings,importMap} from './helpers';
 import {makeAtom} from '../../src/core/model';
 test.use({viewport:{width:390,height:844}});
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.setItem('phosphora:sound-muted','false'));});
 
 test('direct appearance returns directly to settings; contrast lenses stay readable after press and hover',async({page})=>{
  await page.goto('/');await openSettings(page);await page.getByRole('button',{name:'Оформление',exact:false}).click();await expect(page.getByRole('button',{name:'← Настройки',exact:true})).toBeVisible();await page.getByRole('button',{name:'Чёрный бархат',exact:true}).click();await page.getByRole('button',{name:'← Настройки',exact:true}).click();await expect(page.locator('.settings-links>button')).toHaveCount(3);await closeSettings(page);

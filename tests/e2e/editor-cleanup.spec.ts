@@ -10,8 +10,8 @@ for(const mobile of [false,true])test(`editor primary controls and draft cancell
  await page.locator('canvas.map').press('n');
  const editor=page.getByRole('dialog',{name:'Редактор атома'});
  await expect(editor.getByRole('combobox',{name:'Тип',exact:true})).toBeVisible();
- await expect(editor.getByRole('combobox',{name:'Состояние'})).toHaveValue('normal');
- await expect(editor.getByRole('combobox',{name:'Состояние'}).locator('option:checked')).toHaveText('Обычные');
+ await expect(editor.getByRole('combobox',{name:'Состояние'})).toContainText('Обычные');
+ await expect(editor.getByRole('combobox',{name:'Состояние'})).toHaveAttribute('aria-expanded','false');
  await expect(editor.getByRole('toolbar',{name:'Форматирование текста'})).toBeVisible();
  await editor.getByRole('textbox',{name:'Название',exact:true}).fill('Discard this session');
  await (await sourceText(page)).fill('Unsaved body');
@@ -32,8 +32,8 @@ for(const mobile of [false,true])test(`editor primary controls and draft cancell
  await editor.getByRole('button',{name:'Markdown',exact:true}).click();
  await (await sourceText(page)).fill('Changed body');
  await editor.getByRole('button',{name:'Меню заметки',exact:true}).click();
- await expect(editor.getByRole('button',{name:'Отложить',exact:true})).toHaveCount(0);await editor.getByRole('combobox',{name:'Состояние',exact:true}).selectOption('archived');
- await editor.getByRole('button',{name:'Удалить атом',exact:true}).click();
+ await expect(editor.getByRole('button',{name:'Отложить',exact:true})).toHaveCount(0);await editor.getByRole('combobox',{name:'Состояние',exact:true}).click();await editor.getByRole('option',{name:'Архив',exact:true}).click();
+ await editor.getByRole('button',{name:'Удалить заметку',exact:true}).click();
  await editor.locator('.confirm').getByRole('button',{name:'Отмена',exact:true}).click();
  await editor.locator('.note-heading').getByRole('button',{name:'Отмена',exact:true}).click();
  await expect(editor).toBeHidden();
@@ -50,23 +50,23 @@ test('legacy task type is preserved but cannot be chosen for other atoms',async(
  await importMap(page,{atoms:[makeAtom({id:'legacy-task',title:'Legacy task',type:'task',content:'Legacy content',pinned:true})],links:[]});
  await openSettings(page);
  await page.getByRole('button',{name:'Плагины →',exact:true}).click();
- const templates=page.locator('.plugin-row').filter({hasText:'Типы и шаблоны'});
+ const templates=page.locator('.plugin-row').filter({hasText:'Типы заметок'});
  const enable=templates.getByRole('button',{name:'Включить',exact:true});
  if(await enable.count())await enable.click();
  await closeSettings(page);
  await focus(page,'Legacy task');
  const editor=page.getByRole('dialog',{name:'Редактор атома'});
  const type=editor.getByRole('combobox',{name:'Тип',exact:true});
- await expect(type).toHaveValue('task');
- await expect(type.locator('option:checked')).toHaveText('Задача (устаревший тип)');
- await expect(type.locator('option:checked')).toHaveJSProperty('disabled',true);
+ await expect(type).toContainText('Задача (устаревший тип)');
+ await expect(type).toHaveAttribute('aria-expanded','false');
+
  await expect(editor.getByRole('textbox',{name:'Визуальный текст',exact:true})).toContainText('Legacy content');
  await editor.getByRole('textbox',{name:'Название',exact:true}).fill('Legacy task retained');
  await editor.getByRole('button',{name:'Готово',exact:true}).click();
  expect((await readMap(page)).atoms[0].type).toBe('task');
  await page.locator('canvas.map').press('n');
- await expect(type.locator('option[value="task"],option[value="builtin.templates:task"]')).toHaveCount(0);
- await expect(type.locator('option[value="builtin.templates:person"]')).toHaveCount(1);
+ await type.click();await expect(editor.getByRole('option',{name:'Задача (устаревший тип)',exact:true})).toHaveCount(0);
+ await expect(editor.getByRole('option',{name:'Человек',exact:true})).toHaveCount(1);await type.press('Escape');
  await editor.getByRole('button',{name:'Отмена',exact:true}).click();
 });
 

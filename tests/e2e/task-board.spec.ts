@@ -18,7 +18,7 @@ for(const mobile of [false,true])test(`task board persists tasks and source stat
  await popup.locator('select').last().selectOption('30');
  await expect(popup.locator('.task-history [role="listitem"]')).toHaveCount(30);
  await page.screenshot({path:`artifacts/task-history-${mobile?'mobile':'desktop'}.png`});
- await popup.getByRole('button',{name:'Закрыть',exact:true}).click();await group.locator('.group-title').click();await page.getByRole('combobox',{name:'Состояние',exact:true}).selectOption('now');await page.getByRole('button',{name:'Готово',exact:true}).click();
+ await popup.getByRole('button',{name:'Закрыть',exact:true}).click();await group.locator('.group-title').click();await page.getByRole('combobox',{name:'Состояние',exact:true}).click();await page.getByRole('option',{name:'Сейчас',exact:true}).click();await page.getByRole('button',{name:'Готово',exact:true}).click();
  await expect(page.locator('[data-task-lane="now"] [data-source="tasks"]')).toBeVisible();
  let data=await readMap(page);expect(data.atoms[0].content).toContain('- [x] #task First task');expect(data.atoms[0].state).toBe('now');
  const tasks=data.atoms[0].properties['phosphora.tasks'] as any[];expect(tasks[0].recurrence).toBe('daily');expect(Object.values(tasks[0].history)).toContain(true);expect(new Set(tasks.map(t=>t.id)).size).toBe(2);
@@ -51,7 +51,7 @@ test('legacy metadata keeps old tasks and history while new checkboxes stay out 
  await page.goto('/');await importMap(page,{atoms:[makeAtom({id:'legacy',title:'Existing routine',content:'- [ ] Legacy task\n- [ ] Ordinary checkbox',properties:{'phosphora.tasks':[legacy]}})],links:[]});
  await page.locator('.view-toggle button').last().click();const group=page.locator('[data-source="legacy"]');
  await expect(group.getByRole('checkbox')).toHaveCount(1);await expect(group.getByRole('checkbox',{name:'Legacy task',exact:true})).toBeVisible();await expect(group).not.toContainText('#task');
- await group.locator('.group-title').click();await page.getByRole('combobox',{name:'Состояние',exact:true}).selectOption('now');await page.getByRole('button',{name:'Готово',exact:true}).click();
+ await group.locator('.group-title').click();await page.getByRole('combobox',{name:'Состояние',exact:true}).click();await page.getByRole('option',{name:'Сейчас',exact:true}).click();await page.getByRole('button',{name:'Готово',exact:true}).click();
  const atom=(await readMap(page)).atoms[0];expect(atom.content).toContain('- [ ] #task Legacy task');expect(atom.content).toContain('- [ ] Ordinary checkbox');
  expect(atom.properties['phosphora.tasks']).toEqual([expect.objectContaining({...legacy,marker:true})]);
  await page.reload();await expect(group.getByRole('checkbox')).toHaveCount(1);await expect(group.getByRole('checkbox',{name:'Legacy task',exact:true})).toBeVisible();
