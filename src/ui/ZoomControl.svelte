@@ -7,7 +7,7 @@
  let grabbed=$state(false),lit=$state(false),draft=$state(0),reduced=$state(false);let timer:ReturnType<typeof setTimeout>;let bucket=-1;let meter:HTMLOutputElement;
  const side=$derived(options.side);const vertical=$derived(side!=='bottom');
  function wake(){lit=true;clearTimeout(timer);timer=setTimeout(()=>{if(!grabbed)lit=false;},1000);}
- function change(next:number){draft=next;wake();const step=Math.floor(next/(options.style==='wheel'?2:10));if(step!==bucket){bucket=step;playSound('detent');if(options.feedback&&!reduced){navigator.vibrate?.(next===0||next===100?10:5);meter?.animate([{transform:'scale(.97)',opacity:.7},{transform:'scale(1)',opacity:1}],{duration:140,easing:'cubic-bezier(.23,1,.32,1)'});}}onvalue(next);}
+ function change(next:number){draft=next;wake();const step=Math.floor(next/(10));if(step!==bucket){bucket=step;playSound('detent');if(options.feedback&&!reduced){navigator.vibrate?.(next===0||next===100?10:5);meter?.animate([{transform:'scale(.97)',opacity:.7},{transform:'scale(1)',opacity:1}],{duration:140,easing:'cubic-bezier(.23,1,.32,1)'});}}onvalue(next);}
  function release(){if(grabbed){grabbed=false;wake();}}
  onMount(()=>{const media=matchMedia('(prefers-reduced-motion: reduce)');reduced=media.matches;const update=()=>reduced=media.matches;media.addEventListener('change',update);return()=>media.removeEventListener('change',update);});onDestroy(()=>clearTimeout(timer));
 </script>

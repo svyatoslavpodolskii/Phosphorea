@@ -18,3 +18,11 @@ footer nav{border-color:var(--ui-hairline)}footer nav button.active,.view-toggle
 .atom-menu{border-color:var(--ui-hairline);padding:18px;gap:12px}.context-heading{padding-bottom:6px}.context-heading small{font-size:9px;letter-spacing:.08em}.context-heading strong{font-size:17px;font-weight:550}.state-shortcuts button{min-height:60px;border-color:transparent;background:var(--theme-surfaceAlt)}.context-actions button{border-color:transparent}.appearance-options .swatches{gap:5px}.folder-strip{box-shadow:none!important;background:color-mix(in srgb,var(--theme-surface),transparent 7%)!important}.folder-tabs i{box-shadow:none!important}.folder-tabs button.chosen{background:color-mix(in srgb,var(--theme-accent),transparent 88%)!important}.folder-actions{gap:8px!important}.folder-actions input{border-color:var(--ui-hairline)}
 @media(max-width:650px){.settings{--settings-inset:20px;padding:20px;width:100%;max-height:calc(100dvh - 28px);gap:16px}.context-scrim{align-items:flex-end;padding:12px 12px max(12px,env(safe-area-inset-bottom))}.atom-menu{width:100%;max-width:390px;border-radius:24px}.note-scrim .note-editor{padding:16px 18px}.save-popover{right:-44px}.toast{bottom:calc(100px + env(safe-area-inset-bottom))}}
 @media(prefers-reduced-motion:reduce){.plugin-switch i,.plugin-switch i:after{transition:none}.editor button:active{transform:none}}
+
+/* The map owns keyboard focus without drawing a frame around the viewport. */
+canvas.map:focus-visible,main:focus,.settings:focus{outline:none}
+header .save-status>button,header .sound-toggle{display:grid;place-items:center;flex:none;width:40px;height:44px;min-height:44px;padding:0;line-height:1}
+header .save-status>button svg,header .sound-toggle svg{display:block;width:19px;height:19px}
+.footer-controls nav button.active,.footer-controls nav button.active:hover,.footer-controls .view-toggle button.active,.footer-controls .view-toggle button.active:hover{background:var(--theme-accent);color:var(--theme-onAccent)}
+main.app-ready,html[data-ui-panels=false] .kanban{animation:none}
+@media(prefers-reduced-motion:reduce){.map-scene{transform:none}}

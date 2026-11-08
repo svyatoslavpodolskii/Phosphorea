@@ -1,6 +1,7 @@
 <script lang="ts">
  let {id}:{id:string}=$props();
  const paths:Record<string,string>={
+  animations:'m5 4 15 8-15 8ZM2 6v12',
   sound:'M11 4 6 8H3v8h3l5 4ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14',
   daily:'M4 5h16v16H4zM8 2v6M16 2v6M4 10h16M8 14h3v3H8z',
   templates:'M5 3h10l4 4v14H5zM14 3v5h5M8 12h8M8 16h6',
