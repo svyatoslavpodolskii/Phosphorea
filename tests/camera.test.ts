@@ -174,3 +174,8 @@ it('interrupting a live pan does not strand subsequent wheel zoom',()=>{
  expect(rig.gesturing).toBe(false);rig.zoomAt({x:300,y:200},1.4);settle(rig);
  expect(rig.value.zoom).toBeCloseTo(1.4,3);
 });
+it('absolute zoom controls keep the viewport center fixed after a pan or interrupted fit',()=>{
+ const rig=new CameraRig();rig.resize(view);rig.set({x:230,y:-145,zoom:.6});rig.retarget({x:-1200,y:800,zoom:.3});rig.step(16);const screen={x:view.width/2,y:view.height/2},world=screenToWorld(screen,rig.value,view);
+ for(const zoom of [.65,.72,.9,1.4,1.2]){rig.zoomTo(screen,zoom);for(let i=0;i<4;i++){const c=rig.step(16),p=screenToWorld(screen,c,view);expect(p.x).toBeCloseTo(world.x,8);expect(p.y).toBeCloseTo(world.y,8);}}
+ settle(rig);expect(rig.value.zoom).toBeCloseTo(1.2,8);expect(screenToWorld(screen,rig.value,view).x).toBeCloseTo(world.x,8);
+});

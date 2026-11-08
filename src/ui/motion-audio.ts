@@ -2,7 +2,7 @@ export type MotionKind='zoom'|'pan'|'lasso';
 function hold(param:AudioParam,now:number){if(typeof param.cancelAndHoldAtTime==='function')param.cancelAndHoldAtTime(now);else{param.cancelScheduledValues(now);param.setValueAtTime(param.value,now);}}
 export function motionParameters(kind:MotionKind,speed:number,direction=1){
  const intensity=Math.min(1,Math.max(0,Number.isFinite(speed)?speed:0));
- return {gain:Math.sqrt(intensity)*(kind==='zoom'?.12:kind==='lasso'?.035:.025),frequency:(kind==='zoom'?1250:850)+intensity*(kind==='zoom'?2800:1000)+(direction<0?-180:180),pan:kind==='zoom'?Math.sign(direction)*.12:0};
+ return {gain:Math.sqrt(intensity)*(kind==='zoom'?.055:kind==='lasso'?.075:.085),frequency:(kind==='pan'?600:800)+intensity*(kind==='lasso'?1300:kind==='zoom'?750:600)+(direction<0?-60:60),pan:kind==='zoom'?Math.sign(direction)*.06:0};
 }
 /** One loop per gesture. AudioParam automation runs on the audio thread, not
  * a succession of per-pointer samples. No oscillator/low-frequency impact. */
@@ -15,7 +15,7 @@ export class MotionAudio {
  constructor(private context:AudioContext){const rate=context.sampleRate;this.buffer=context.createBuffer(1,rate*2,rate);const data=this.buffer.getChannelData(0);let seed=179;for(let i=0;i<data.length;i++){seed=(seed*1664525+1013904223)>>>0;data[i]=(seed/4294967296*2-1)*.5;}}
  update(kind:MotionKind,speed:number,volume:number,direction=1){
   const p=motionParameters(kind,speed,direction);if(p.gain<.002||volume<=0)return;
-  if(!this.voice){const source=this.context.createBufferSource(),high=this.context.createBiquadFilter(),filter=this.context.createBiquadFilter(),gain=this.context.createGain(),pan=this.context.createStereoPanner();source.buffer=this.buffer;source.loop=true;high.type='highpass';high.frequency.value=600;high.Q.value=.5;filter.type='lowpass';filter.frequency.value=p.frequency;filter.Q.value=.5;gain.gain.value=0;source.connect(high).connect(filter).connect(gain).connect(pan).connect(this.context.destination);this.voice={source,high,filter,gain,pan};source.start();}
+  if(!this.voice){const source=this.context.createBufferSource(),high=this.context.createBiquadFilter(),filter=this.context.createBiquadFilter(),gain=this.context.createGain(),pan=this.context.createStereoPanner();source.buffer=this.buffer;source.loop=true;high.type='highpass';high.frequency.value=300;high.Q.value=.5;filter.type='lowpass';filter.frequency.value=p.frequency;filter.Q.value=.4;gain.gain.value=0;source.connect(high).connect(filter).connect(gain).connect(pan).connect(this.context.destination);this.voice={source,high,filter,gain,pan};source.start();}
   const now=this.context.currentTime,v=this.voice;
   hold(v.gain.gain,now);v.gain.gain.setTargetAtTime(p.gain*volume,now,.035);v.gain.gain.setTargetAtTime(0,now+.09,.045);
   hold(v.filter.frequency,now);v.filter.frequency.setTargetAtTime(p.frequency,now,.045);hold(v.pan.pan,now);v.pan.pan.setTargetAtTime(p.pan,now,.06);

@@ -17,9 +17,10 @@ export function gestureSound(cue:SoundCue){if(context?.state==='running'){playSo
 export function setMuted(value:boolean){muted=value;try{localStorage.setItem('phosphora:sound-muted',String(value));}catch{}if(value)stopMotionSound();if(value)for(const voice of voices)try{voice.stop();}catch{}changed();if(!value)void unlock().then(()=>playSound('tap'));}
 export function contactSamples(cue:SoundCue,sampleRate:number){
  if(cue==='move'||cue==='lasso')return new Float32Array(0);
- const duration=cue==='hold'?.14:cue==='open'?.07:cue==='detent'?.014:.023,samples=new Float32Array(Math.ceil(sampleRate*duration));let seed=41,low=0,phase=0;
+ const duration=cue==='hold'?.36:cue==='open'?.07:cue==='detent'?.014:.023,samples=new Float32Array(Math.ceil(sampleRate*duration));let seed=41,low=0,phase=0;
  for(let i=0;i<samples.length;i++){const t=i/sampleRate;
-  if(cue==='hold'||cue==='open'){const progress=t/duration,envelope=Math.sin(Math.PI*progress)**2;phase+=2*Math.PI*(cue==='hold'?580+420*progress:760-160*progress)/sampleRate;samples[i]=(Math.sin(phase)+.16*Math.sin(phase*2))*envelope*(cue==='hold'?.105:.045);}
+  if(cue==='hold'){const progress=t/duration,envelope=Math.sin(Math.PI*progress)**2*(.8+.2*Math.cos(progress*Math.PI*6));phase+=2*Math.PI*(150-50*progress)/sampleRate;samples[i]=(Math.sin(phase)+.35*Math.sin(phase*2))*envelope*.085;}
+  else if(cue==='open'){const progress=t/duration,envelope=Math.sin(Math.PI*progress)**2;phase+=2*Math.PI*(760-160*progress)/sampleRate;samples[i]=(Math.sin(phase)+.16*Math.sin(phase*2))*envelope*.045;}
   else{seed=(seed*1664525+1013904223)>>>0;low=low*.7+(seed/4294967296*2-1)*.3;const envelope=Math.min(1,t/.0015)*Math.exp(-t/(duration*.18));samples[i]=(low*.65+Math.sin(t*Math.PI*2*(cue==='detent'?380:230))*.35)*envelope*(cue==='detent'?.24:.32);}
  }return samples;
 }
@@ -29,15 +30,15 @@ export function playSound(cue:SoundCue){const now=performance.now();if(cue==='mo
   if(voices.size>=3)return;const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=volume;source.connect(gain).connect(context.destination);voices.add(source);source.onended=()=>{voices.delete(source);source.disconnect();gain.disconnect();};source.start();
  }catch{}
 }
-export function installSoundFeedback(){let start:{x:number;y:number;time:number;canvas:boolean}|null=null;let pointerContact=-Infinity,openingPending=true;
+export function installSoundFeedback(){let start:{id:number;x:number;y:number;time:number;canvas:boolean;moved:boolean}|null=null;let pointerContact=-Infinity,openingPending=true;const canvasPointers=new Set<number>();
  const actionable=(target:Element)=>target.closest('button,[role=button],[role=option],[role=menuitem],summary,select,input[type=checkbox],label:has(input[type=checkbox])')&&!target.closest('[data-sound=off],:disabled');
- const down=(e:PointerEvent)=>{if(e.button!==0)return;const target=e.target as Element;start={x:e.clientX,y:e.clientY,time:performance.now(),canvas:target.matches('canvas.map')};motionHeld=start.canvas;motion?.setHeld(motionHeld);if(actionable(target)||start.canvas){pointerContact=performance.now();gestureSound(openingPending?'open':'tap');openingPending=false;}else void unlock();};
+ const down=(e:PointerEvent)=>{if(e.button!==0)return;const target=e.target as Element,canvas=target.matches('canvas.map');if(canvas)canvasPointers.add(e.pointerId);start={id:e.pointerId,x:e.clientX,y:e.clientY,time:performance.now(),canvas,moved:canvasPointers.size>1};sample={x:e.clientX,y:e.clientY,time:start.time};motionHeld=canvasPointers.size>0;motion?.setHeld(motionHeld);if(canvas){openingPending=false;void unlock();}else if(actionable(target)){pointerContact=performance.now();gestureSound(openingPending?'open':'tap');openingPending=false;}else void unlock();};
  const click=(e:MouseEvent)=>{if(actionable(e.target as Element)&&(!e.detail||performance.now()-pointerContact>700))gestureSound('tap');};
- const up=()=>{motionHeld=false;motion?.setHeld(false);start=null;};
- let sample={x:0,y:0,time:0};const move=(e:PointerEvent)=>{if(!start?.canvas)return;const now=performance.now(),distance=Math.hypot(e.clientX-sample.x,e.clientY-sample.y),dt=now-sample.time;if(sample.time>=start.time&&dt>0&&distance>1)motionSound((e.target as HTMLElement).dataset.gesture==='lasso'?'lasso':'pan',Math.min(1,distance/Math.max(8,dt)));sample={x:e.clientX,y:e.clientY,time:now};};
- const cancel=()=>{start=null;stopMotionSound();};
- const key=(e:KeyboardEvent)=>{if(['Enter',' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)&&(e.target as Element).closest('button,[role=slider],select'))void unlock();};
- const visibility=()=>{if(document.hidden){start=null;stopMotionSound();}};
+ const up=(e:PointerEvent)=>{canvasPointers.delete(e.pointerId);motionHeld=canvasPointers.size>0;motion?.setHeld(motionHeld);if(start?.id!==e.pointerId){if(start)start.moved=true;return;}if(start.canvas&&!start.moved&&Math.hypot(e.clientX-start.x,e.clientY-start.y)<8&&performance.now()-start.time<450)gestureSound('tap');start=null;};
+ let sample={x:0,y:0,time:0};const move=(e:PointerEvent)=>{if(!start?.canvas)return;if(Math.hypot(e.clientX-start.x,e.clientY-start.y)>=8)start.moved=true;const now=performance.now(),distance=Math.hypot(e.clientX-sample.x,e.clientY-sample.y),dt=now-sample.time;if(start.moved&&sample.time>=start.time&&dt>0&&distance>1)motionSound((e.target as HTMLElement).dataset.gesture==='lasso'?'lasso':'pan',Math.min(1,distance/Math.max(8,dt)));sample={x:e.clientX,y:e.clientY,time:now};};
+ const cancel=()=>{start=null;canvasPointers.clear();stopMotionSound();};
+ const key=(e:KeyboardEvent)=>{if(['Enter',' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)&&(e.target as Element).closest('button,[role=slider],input[type=range],select'))void unlock();};
+ const visibility=()=>{if(document.hidden)cancel();};
  const change=(e:Event)=>{if(performance.now()-pointerContact>700&&(e.target as Element).matches('select,input[type=checkbox]'))gestureSound('tap');};
  document.addEventListener('visibilitychange',visibility);document.addEventListener('pointerdown',down,true);document.addEventListener('pointerup',up,true);document.addEventListener('pointermove',move,true);document.addEventListener('pointercancel',cancel,true);document.addEventListener('click',click,true);document.addEventListener('change',change,true);document.addEventListener('keydown',key,true);
  return()=>{stopMotionSound();document.removeEventListener('visibilitychange',visibility);document.removeEventListener('pointerdown',down,true);document.removeEventListener('pointerup',up,true);document.removeEventListener('pointermove',move,true);document.removeEventListener('pointercancel',cancel,true);document.removeEventListener('click',click,true);document.removeEventListener('change',change,true);document.removeEventListener('keydown',key,true);};

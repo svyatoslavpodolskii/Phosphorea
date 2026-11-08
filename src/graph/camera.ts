@@ -111,6 +111,14 @@ export class CameraRig{
    const zoom=clampZoom(this.target.zoom*factor);
    this.retarget({...this.target,zoom});
   }
+  /** Absolute control zoom always keeps the presented viewport center fixed.
+   * It does not blend in the overview's translation while crossing low ticks. */
+  zoomTo(screen:Point,zoom:number){
+   this.direct=false;this.pinching=false;this.retargeting=false;
+   this.anchor={world:screenToWorld(screen,this.camera,this.view),screen};
+   this.target=fromAnchor(this.anchor,clampZoom(zoom),this.view);
+   this.pending.x=this.pending.y=0;this.pending.z=Math.log(this.target.zoom/this.camera.zoom);this.event();this.wake();
+  }
   panBy(dx:number,dy:number){this.retargeting=false;this.anchor=null;this.pinching=false;this.event();this.pending.x+=dx;this.pending.y+=dy;this.target={...this.target,x:this.target.x+dx,y:this.target.y+dy};this.wake();}
   /** Keeps an active zoom anchor while the gesture's midpoint travels. */
   moveAnchor(dx:number,dy:number){
