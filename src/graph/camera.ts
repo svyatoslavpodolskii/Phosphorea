@@ -9,7 +9,7 @@ const TAU=.05,MAX_STEP=64;
 const ZOOM_EPS=.0004,PAN_EPS=.12;
 /** Smoothing is decided by how continuous the input is, not by a fixed constant.
  *  A wheel notch arrives alone and eases in over a few frames; a trackpad pinch
- *  arrives many times per frame and is performed at once. Nothing here depends on
+ *  arrives frequently and retains a short elastic follow. Nothing here depends on
  *  the device, only on the interval the hand actually produced. */
 const NOTCH_SHARE=.2,STREAM_SHARE=.85,CONTINUOUS_MS=45,DISCRETE_MS=15,REFERENCE_FRAME=1000/60;
 /** Hard perceptual ceiling: the world may not expand or slide faster than this per
@@ -44,16 +44,8 @@ export function gestureZoomFactor(scale:number,previous:number){
   return Math.exp(-Math.max(-.5,Math.min(.5,Math.log(scale/previous))*.9));
 }
 
-/** Owns the target camera. Input only writes intent here; the renderer consumes
- *  that intent at a stable per-frame rate and never more than the pending amount.
- *
- *  Two regimes, because a finger and a wheel wheel are not the same instrument.
- *  While a finger is on the glass the camera tracks it exactly: any smoothing
- *  there is lag, and lag on a touch screen reads as a broken zoom. Everything else
- *  - wheel notches, trackpad scroll, focus corrections, fit views, and the
- *  hand-off when a drag or a pinch ends - is smoothed by consuming the request at
- *  a stable per-frame rate, never more than the outstanding amount, so it can
- *  neither overshoot nor accumulate lag. */
+/** Owns intended camera and its presentation. Zoom uses a bounded, critically
+ * damped spring; one-finger panning remains directly attached to the hand. */
 export class CameraRig{
   camera:Camera={x:0,y:0,zoom:1};
   private target:Camera={x:0,y:0,zoom:1};
@@ -65,7 +57,7 @@ export class CameraRig{
   /** True while two fingers are down: the focal point they hold must survive. */
   private pinching=false;
   /** True while a finger is on the glass: the camera is the hand, one to one. */
-  private direct=false;
+  private direct=false;private zoomVelocity=0;
   private view:Viewport={width:1,height:1};
   private reduced=false;
   moving=false;
@@ -78,33 +70,30 @@ export class CameraRig{
   setReduced(reduced:boolean){this.reduced=reduced;}
 
   /** Immediate placement, used for restore, resize and reduced motion only. */
-  set(camera:Camera){this.direct=false;this.retargeting=false;this.camera={...camera};this.target={...camera};this.pending.x=this.pending.y=this.pending.z=0;this.anchor=null;this.pinching=false;this.lastEvent=0;this.interval=Infinity;this.settled=true;this.moving=false;}
+  set(camera:Camera){this.zoomVelocity=0;this.direct=false;this.retargeting=false;this.camera={...camera};this.target={...camera};this.pending.x=this.pending.y=this.pending.z=0;this.anchor=null;this.pinching=false;this.lastEvent=0;this.interval=Infinity;this.settled=true;this.moving=false;}
 
   get value(){return this.camera;}
   get anchored(){return this.anchor!==null;}
   get gesturing(){return this.direct;}
   get intended(){return this.target;}
 
-  /** A two finger gesture asks for an absolute zoom, held to the point between the
-   *  fingers. While the fingers are down the camera *is* the fingers: one to one,
-   *  no interpolation. Smoothing a live touch is not polish, it is lag, and lag on a
-   *  touch screen reads as a broken zoom. The focal point is re-anchored on every
-   *  move, which is what pins the world point under the fingers and also carries
-   *  the two finger pan. */
+  /** Keep the original world anchor under the moving finger midpoint while
+   * scale follows the gesture with the same spring as wheel and zoom controls. */
   pinchTo(screen:Point,zoom:number){
    if(this.anchor)this.anchor={...this.anchor,screen};
    else this.anchor={world:screenToWorld(screen,this.camera,this.view),screen};
    this.pinching=true;this.direct=true;this.settled=false;this.moving=true;
    this.target=fromAnchor(this.anchor,clampZoom(zoom),this.view);
-   this.camera={...this.target};
+   this.pending.z=Math.log(this.target.zoom/this.camera.zoom);this.event();if(this.reduced)this.camera={...this.target};
   }
   /** Single finger drag: the canvas is held in the hand, so it tracks it exactly. */
   trackTo(camera:Camera){
+   this.zoomVelocity=0;this.pending.z=0;
    this.anchor=null;this.pinching=false;this.direct=true;this.settled=false;this.moving=true;
    this.target={...camera,zoom:clampZoom(camera.zoom)};this.camera={...this.target};
   }
-  /** The fingers left. Whatever they were holding is released, exactly where it is. */
-  endPinch(){this.pinching=false;this.direct=false;this.anchor=null;this.target={...this.camera};this.pending.x=this.pending.y=this.pending.z=0;this.settled=true;this.moving=false;}
+  /** Release the fingers, retaining their final target and anchor until settled. */
+  endPinch(){this.pinching=false;this.direct=false;this.interval=Infinity;this.pending.z=Math.log(this.target.zoom/this.camera.zoom);this.wake();}
 
   /** Establishes or reuses the anchor, then records the requested zoom. The world
    *  point under the pointer stays under the pointer for the whole gesture. */
@@ -149,7 +138,7 @@ export class CameraRig{
    this.wake();
   }
   /** Stops all motion where it stands. Used when the user grabs the canvas. */
-  halt(){this.retargeting=false;this.direct=false;this.target={...this.camera};this.pending.x=this.pending.y=this.pending.z=0;this.anchor=null;this.pinching=false;this.settled=true;this.moving=false;}
+  halt(){this.zoomVelocity=0;this.retargeting=false;this.direct=false;this.target={...this.camera};this.pending.x=this.pending.y=this.pending.z=0;this.anchor=null;this.pinching=false;this.settled=true;this.moving=false;}
 
   /** Records that the hand produced another event, and how long since the last one. */
   private event(){
@@ -159,13 +148,20 @@ export class CameraRig{
   }
     private wake(){if(this.reduced){this.camera=this.anchor?fromAnchor(this.anchor,this.target.zoom,this.view):{...this.target};this.settled=true;this.moving=false;return;}this.settled=false;this.moving=true;}
 
+  /** Critically damped spring in log scale: a short elastic follow, no bounce
+   * beyond the requested scale. Analytical integration is frame-rate independent. */
+  private springZoom(dt:number,cap:number){
+   const t=Math.max(0,Math.min(MAX_STEP,dt))/1000;if(!t)return 0;
+   const current=Math.log(this.camera.zoom),target=Math.log(this.target.zoom),error=current-target,omega=45,c=this.zoomVelocity+omega*error,decay=Math.exp(-omega*t);
+   const wanted=target+(error+c*t)*decay,delta=Math.max(-cap,Math.min(cap,wanted-current));
+   this.zoomVelocity=(this.zoomVelocity-omega*c*t)*decay;
+   const next=clampZoom(Math.exp(current+delta));return Math.log(next)-current;
+  }
+
   step(dt:number):Camera{
-   if(this.direct)return this.camera;
+   if(this.direct&&!this.pinching)return this.camera;
    if(this.settled)return this.camera;
-   // Smoothing is decided by how continuous the hand is, not by a fixed constant.
-   // A wheel notch arrives alone and eases in; a trackpad pinch or a drag arrives
-   // many times per frame and is performed almost at once. The exponent makes this
-   // identical at 30, 60 and 144Hz, so a gesture always lands in the same place.
+   // Pan follows input cadence; zoom has the same spring for fingers and controls.
    const span=Number.isFinite(this.interval)?this.interval:Infinity;
    const continuity=Math.max(0,Math.min(1,(CONTINUOUS_MS-span)/(CONTINUOUS_MS-DISCRETE_MS)));
    const share=NOTCH_SHARE+(STREAM_SHARE-NOTCH_SHARE)*continuity;
@@ -178,24 +174,24 @@ export class CameraRig{
    };
    if(this.anchor){
     const gap=Math.log(this.target.zoom)-Math.log(this.camera.zoom);
-    const take=move(alpha*this.pending.z,gap,zoomCap);
+    const take=this.springZoom(dt,zoomCap);
     this.pending.z-=take;
     this.camera=fromAnchor(this.anchor,Math.exp(Math.log(this.camera.zoom)+take),this.view);
-    if(Math.abs(gap)<ZOOM_EPS&&Math.abs(this.pending.z)<ZOOM_EPS){
-     this.camera=fromAnchor(this.anchor,this.target.zoom,this.view);this.pending.z=0;this.settled=true;this.moving=false;if(!this.pinching)this.anchor=null;
+    if(Math.abs(gap)<ZOOM_EPS&&Math.abs(this.pending.z)<ZOOM_EPS&&Math.abs(this.zoomVelocity)<.02){
+     this.camera=fromAnchor(this.anchor,this.target.zoom,this.view);this.zoomVelocity=0;this.pending.z=0;this.settled=true;this.moving=false;if(!this.pinching)this.anchor=null;
     }
     return this.camera;
    }
    const gapX=this.target.x-this.camera.x,gapY=this.target.y-this.camera.y,gapZ=Math.log(this.target.zoom)-Math.log(this.camera.zoom);
-   const stepZ=move(alpha*this.pending.z,gapZ,zoomCap),zoom=Math.exp(Math.log(this.camera.zoom)+stepZ),ratio=zoom/this.camera.zoom;
+   const stepZ=this.springZoom(dt,zoomCap),zoom=Math.exp(Math.log(this.camera.zoom)+stepZ),ratio=zoom/this.camera.zoom;
    // Scale around the presented viewport center, then approach the target center.
    // Raw translation interpolation would make distant zoom flights orbit off screen.
    const baseX=this.camera.x*ratio,baseY=this.camera.y*ratio,targetX=this.target.x*zoom/this.target.zoom,targetY=this.target.y*zoom/this.target.zoom;
    const stepX=move(alpha*(targetX-baseX),targetX-baseX,panCap),stepY=move(alpha*(targetY-baseY),targetY-baseY,panCap);
    this.pending.z-=stepZ;this.camera={x:baseX+stepX,y:baseY+stepY,zoom};
    this.pending.x=this.target.x-this.camera.x;this.pending.y=this.target.y-this.camera.y;
-   if(Math.hypot(gapX,gapY)<PAN_EPS&&Math.abs(gapZ)<ZOOM_EPS&&Math.abs(this.pending.z)<ZOOM_EPS){
-    this.camera={...this.target};this.pending.x=this.pending.y=this.pending.z=0;this.settled=true;this.moving=false;
+   if(Math.hypot(gapX,gapY)<PAN_EPS&&Math.abs(gapZ)<ZOOM_EPS&&Math.abs(this.pending.z)<ZOOM_EPS&&Math.abs(this.zoomVelocity)<.02){
+    this.camera={...this.target};this.zoomVelocity=0;this.pending.x=this.pending.y=this.pending.z=0;this.settled=true;this.moving=false;
    }
    return this.camera;
   }

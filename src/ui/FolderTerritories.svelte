@@ -12,10 +12,9 @@
 </script>
 
 <svg class="folder-territories" {width} {height} aria-hidden="true">
- <defs><filter id="folder-soft-edge" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="8"/></filter></defs>
  <g {transform}>
   {#each visible as territory (territory.id)}
-   <path filter="url(#folder-soft-edge)" d={territory.path} fill={territory.color} fill-opacity={activeId===territory.id ? .11 : .055} stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+   <path d={territory.path} fill={territory.color} fill-opacity={activeId===territory.id ? .045 : .022} stroke={territory.color} stroke-opacity={activeId===territory.id ? .5 : .28} stroke-width="1.25" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
   {/each}
  </g>
 </svg>

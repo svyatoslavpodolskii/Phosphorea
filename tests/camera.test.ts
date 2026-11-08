@@ -70,13 +70,16 @@ it('a reversal never produces a discontinuity',()=>{
   const step=Math.max(...[...up,...down].map((v,i,a)=>i?Math.abs(v-a[i-1]):0));
   expect(step).toBeLessThan(.2);
 });
-it('a sustained trackpad pinch tracks the hand instead of falling behind',()=>{
+it('a sustained trackpad pinch has a bounded elastic follow and lands exactly',()=>{
   const h=hand(4);h.rig.resize(view);h.rig.set({x:0,y:0,zoom:1});
   let worst=0;
   for(let frame=0;frame<10;frame++){for(let i=0;i<4;i++){h.beat();h.rig.zoomAt({x:450,y:310},1.02);}h.rig.step(16);worst=Math.max(worst,Math.abs(Math.log(h.rig.value.zoom)-Math.log(Math.pow(1.02,4*(frame+1)))));}
-  expect(worst).toBeLessThan(.05);
+  expect(worst).toBeGreaterThan(.05);expect(worst).toBeLessThan(.2);
   settle(h.rig);
   expect(h.rig.value.zoom).toBeCloseTo(Math.pow(1.02,40),3);
+});
+it('finger scale follows elastically and retains the final target after release',()=>{
+ const rig=new CameraRig();rig.resize(view);rig.set({x:0,y:0,zoom:1});const screen={x:220,y:180},world=screenToWorld(screen,rig.value,view);rig.pinchTo(screen,2);expect(rig.value.zoom).toBe(1);const first=rig.step(16);expect(first.zoom).toBeGreaterThan(1);expect(first.zoom).toBeLessThan(1.4);rig.endPinch();settle(rig);expect(rig.value.zoom).toBeCloseTo(2,8);expect(screenToWorld(screen,rig.value,view)).toEqual(world);
 });
 it('a slow precise scroll moves exactly as little as it is asked to',()=>{
   const h=hand(90);h.rig.resize(view);h.rig.set({x:0,y:0,zoom:1});

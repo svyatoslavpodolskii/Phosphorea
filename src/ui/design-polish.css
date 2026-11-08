@@ -26,3 +26,6 @@ header .save-status>button svg,header .sound-toggle svg{display:block;width:19px
 .footer-controls nav button.active,.footer-controls nav button.active:hover,.footer-controls .view-toggle button.active,.footer-controls .view-toggle button.active:hover{background:var(--theme-accent);color:var(--theme-onAccent)}
 main.app-ready,html[data-ui-panels=false] .kanban{animation:none}
 @media(prefers-reduced-motion:reduce){.map-scene{transform:none}}
+
+/* The save popover and search belong above the folder strip, below modal sheets. */
+main>header{z-index:8}.save-status:has(.save-popover){z-index:1}

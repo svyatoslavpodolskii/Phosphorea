@@ -13,7 +13,7 @@
 </script>
 <svelte:window onpointerup={release} onpointercancel={release}/>
 <div class="camera-slider zoom-control" class:wheel={options.style==='wheel'} class:lit class:grabbed class:vertical class:left={side==='left'} class:right={side==='right'} class:bottom={side==='bottom'} aria-label="Управление масштабом">
- {#if options.style==='wheel'}<RotaryZoom {value} {percent} {vertical} onvalue={change}/>{:else}<div class="zoom-rail"><div class="zoom-ticks" aria-hidden="true">{#each Array.from({length:11},(_,i)=>i) as i}<i style:left={vertical?'26%':`${i*10}%`} style:top={vertical?`${100-i*10}%`:'50%'} class:major={i===0||i===5||i===10} class:current={Math.abs(i*10-value)<3}></i>{/each}</div>
+ {#if options.style==='wheel'}<RotaryZoom {value} {percent} {vertical} onvalue={change}/>{:else}<div class="zoom-rail"><span class="zoom-progress" aria-hidden="true" style:transform={vertical?`scaleY(${value/100})`:`scaleX(${value/100})`}></span><div class="zoom-ticks" aria-hidden="true">{#each Array.from({length:11},(_,i)=>i) as i}<i style:left={vertical?'26%':`${i*10}%`} style:top={vertical?`${100-i*10}%`:'50%'} class:major={i===0||i===5||i===10} class:current={Math.abs(i*10-value)<3}></i>{/each}</div>
  <input aria-label="Масштаб карты" aria-valuetext={value<2?'Обзор':`${percent}%`} type="range" min="0" max="100" step="1" value={grabbed?draft:value} onpointerdown={()=>{draft=value;bucket=Math.floor(value/10);grabbed=true;wake();}} oninput={e=>change(Number(e.currentTarget.value))} onkeydown={wake} onblur={()=>{grabbed=false;wake();}}/>
  </div>{/if}<output bind:this={meter} aria-hidden="true">{percent}%</output>
 </div>
@@ -23,6 +23,7 @@
  .zoom-control.lit,.zoom-control.grabbed,.zoom-control:has(input:focus-visible),.zoom-control:has(:global(.rotary.held)),.zoom-control:has(:global(.rotary:focus-visible)){opacity:1;border-color:var(--theme-border)}
  .vertical{top:50%;transform:translateY(-50%);padding:10px 0;width:44px}.left{left:max(8px,env(safe-area-inset-left))}.right{right:max(8px,env(safe-area-inset-right))}.bottom{bottom:calc(110px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);padding:0 12px}
  .zoom-rail{position:relative;display:flex;align-items:center;justify-content:center;width:134px;height:44px}.vertical .zoom-rail{width:44px;height:144px}
+ .zoom-progress{position:absolute;z-index:2;pointer-events:none;width:100%;height:3px;border-radius:3px;background:var(--theme-accent);transform-origin:left center;opacity:.7}.vertical .zoom-progress{height:100%;width:3px;transform-origin:center bottom}
  input{position:relative;z-index:1;width:134px;min-height:44px;padding:0;margin:0;appearance:none;background:transparent;border:0;border-radius:999px;box-shadow:none;outline:none;cursor:grab;touch-action:none}.vertical input{writing-mode:vertical-lr;direction:rtl;width:44px;height:144px;min-height:0}input:active{cursor:grabbing}input:focus{outline:none;box-shadow:none}
  input::-webkit-slider-runnable-track{background:var(--theme-border);border-radius:4px;height:3px;width:100%}input::-moz-range-track{background:var(--theme-border);border-radius:4px;height:3px;width:100%}
  .vertical input::-webkit-slider-runnable-track{height:100%;width:3px}.vertical input::-moz-range-track{height:100%;width:3px}
