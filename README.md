@@ -4,7 +4,9 @@
 
 <p align="center"><a href="https://svyatoslavpodolskii.github.io/Phosphorea/"><strong>Открыть Phosphorea →</strong></a> &nbsp; · &nbsp; <a href="docs/README.md">Как пользоваться</a></p>
 
-![Настоящий экран Phosphorea: заметки об альбоме, путешествии и мастерской связаны на одной карте](docs/assets/map-desktop.png)
+https://github.com/user-attachments/assets/2b728992-ea2e-4dbc-b9ea-6eaef3f232b1
+
+<p align="center"><sub>1:39 · <a href="film/CREDITS.md">Музыка и авторство</a></sub></p>
 
 ## Дайте идее место
 
