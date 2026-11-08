@@ -33,7 +33,7 @@ it('drag transmits to connected free atoms and restores all affected geometry on
  expect(latest).toBe(shown);expect(node0('a').x).toBe(100);expect(node0('a').y).toBe(50);
  controller.cancelDrag();controller.beginDrag('a');controller.drag('a',100,50);
  const node=(id:string)=>latest.expanded.nodes.find((n:any)=>n.id===id);
- expect(node('a').x).toBe(100);expect(node('b').x).toBeGreaterThan(200);expect(node('b').x).toBeLessThan(300);expect(node('b').y).toBeGreaterThan(0);
+ expect(node('a').x).toBe(100);expect(node('b').x).toBe(200);expect(node('b').x).toBeLessThan(300);expect(node('b').y).toBe(0);
  expect(node('pin').x).toBe(400);expect(node('pin').y).toBe(0);expect(node('island').x).toBe(600);
  controller.cancelDrag();expect(node('a').x).toBe(0);expect(node('b').x).toBe(200);
  controller.beginDrag('a');controller.drag('a',100,50);await controller.endDrag(true);expect(node('a').x).toBe(0);expect(node('b').x).toBe(200);

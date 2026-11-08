@@ -9,6 +9,7 @@ const retired=['builtin.daily-tasks'];
 export async function initializePluginDefaults(storage:StorageAdapter,hasAtoms:boolean){
  let disabled=await storage.getSetting<string[]>('disabled-builtins');
  const existing=hasAtoms||disabled!==undefined||await storage.getSetting('map')!==undefined||await storage.getSetting('preferences')!==undefined;
+ if(!existing){const disabled=[...retired];await storage.transaction([{kind:'setting',key:'disabled-builtins',value:disabled},...['retired-builtins-v1','map-tools-defaults-v1','plugin-defaults-v2','lasso-default-v2'].map(key=>({kind:'setting' as const,key,value:true}))]);return disabled;}
  if(!await storage.getSetting('retired-builtins-v1')){
   if(disabled!==undefined)disabled=[...new Set([...disabled,...retired])];
   await storage.transaction([{kind:'setting',key:'retired-builtins-v1',value:true},...(disabled!==undefined?[{kind:'setting' as const,key:'disabled-builtins',value:disabled}]:[])]);

@@ -4,8 +4,8 @@ import type {StorageAdapter,Mutation} from '../src/core/model';
 function storage(values:Record<string,unknown>={}){
  return {values,adapter:{getSetting:async(key:string)=>values[key],transaction:async(ops:Mutation[])=>{for(const op of ops)if(op.kind==='setting')values[op.key]=op.value;}} as StorageAdapter};
 }
-it('new workspace starts with one model and optional features off, once',async()=>{
- const h=storage();expect(await initializePluginDefaults(h.adapter,false)).toEqual(optionalBuiltins);
+it('new workspace enables every available feature, preserving later choices',async()=>{
+ const h=storage();expect(await initializePluginDefaults(h.adapter,false)).toEqual(['builtin.daily-tasks']);
  h.values['disabled-builtins']=[];
  expect(await initializePluginDefaults(h.adapter,true)).toEqual([]);
  expect(h.values['plugin:builtin.daily:years']).toBeUndefined();

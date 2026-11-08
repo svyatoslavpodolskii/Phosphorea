@@ -9,7 +9,7 @@
  let recurrence=$state<{atomId:string;taskId:string;x:number;y:number}|null>(null);
  function showRecurrence(e:MouseEvent,atom:Atom,task:NoteTask){const box=(e.currentTarget as HTMLElement).getBoundingClientRect();recurrence={atomId:atom.id,taskId:task.id,x:Math.max(12,Math.min(box.right-270,window.innerWidth-282)),y:Math.max(12,Math.min(box.bottom+6,window.innerHeight-330))};}
  let clock=$state(Date.now());onMount(()=>{const timer=setInterval(()=>clock=Date.now(),60000);return()=>clearInterval(timer);});
- const lanes=[['now','Сейчас'],['normal','Поле'],['archived','Архив']] as const;
+ const lanes=[['now','Сейчас'],['normal','Обычные'],['archived','Архив']] as const;
  let archiveOffer=$state('');let busy=$state(false),error=$state(''),drag=$state<{id:string;title:string;pointer:number;lane:string;x:number;y:number}|null>(null),period=$state(7);
  let deletion=$state<{before:Atom;revision:number}|null>(null);let undoTimer:ReturnType<typeof setTimeout>;onDestroy(()=>clearTimeout(undoTimer));
  const groups=$derived(data.atoms.map(atom=>({atom,tasks:tasksAt(atom,new Date(clock))})).filter(group=>group.tasks.length));

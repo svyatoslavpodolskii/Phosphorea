@@ -86,6 +86,22 @@ Atoms expose `paused: boolean` independently of `state` (`normal`, `now`, `archi
 
 API v1 still accepts legacy `setState(id, 'paused')`, `create` and `update` inputs. Core converts them to the independent modifier. Legacy imports and schema-v3 databases use `phosphora.pauseState` when available; otherwise the original state is unknowable and defaults to `normal`. Migrated atoms expose canonical state plus the boolean. SQLite schema v4, full backups, JSON exports and Markdown frontmatter preserve the modifier; Markdown uses `phosphored_paused` alongside the established compatibility keys.
 
+## Command context and bundled settings
+
+Command callbacks may receive `run(atomId?, {folderId?, position?})`.
+`position` is the current camera center in world coordinates (`{x, y}`). It is a
+placement hint, not a request to create a relationship. Only pass a parent to
+`atoms.create(input, parentId)` when an actual semantic relationship is intended.
+The daily command uses folder membership and a free location near this hint;
+unrelated selected or nearby notes do not become its parent.
+
+Bundled physics controls now use `builtin.physics` scoped settings. Existing
+preferences supply defaults without rewriting them at startup. Changes apply one
+field at a time; disabling the plugin stops motion while preserving settings and
+stored positions. `builtin.appearance` owns the theme settings screen. Existing
+disabled plugin choices survive updates; all available plugins start enabled only
+in a new workspace.
+
 ## Task operations
 
 `atoms.setTask(atomId, taskId, { checked?, recurrence? })` requires `atoms.write`. Recurrence accepts `daily`, `weekly`, or `null` to stop repeating. Task IDs and completion history are stored in the source atom properties under `phosphora.tasks`; Markdown checkboxes remain editable. Stale revisions reject rather than overwriting concurrent edits.

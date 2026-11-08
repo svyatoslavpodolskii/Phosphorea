@@ -11,7 +11,7 @@ test('visual typing, formatting, checklist, source mode and cancel',async({page}
  await expect(visual.locator('strong')).toHaveText('Hello world');
  await page.getByRole('button',{name:'Готово',exact:true}).click();
  expect((await readMap(page)).atoms[0].content).toContain('**Hello world**');
- await focus(page,'Visual note');await page.getByRole('button',{name:'Визуально',exact:true}).click();
+ await focus(page,'Visual note');await page.getByRole('button',{name:'Обычный',exact:true}).click();
  await expect(visual.locator('strong')).toHaveText('Hello world');
  await visual.press('Control+End');await visual.press('Enter');await page.getByRole('button',{name:'Чек-лист',exact:true}).click();await page.keyboard.type('Check me');
  await expect(visual.getByRole('checkbox')).toHaveCount(1);await visual.getByRole('checkbox').check();
@@ -25,7 +25,7 @@ test('visual edits preserve untouched Markdown, wiki references and unsupported 
  await page.goto('/');
  const original='Editable paragraph\r\n\r\n[[Target|Alias]]\r\n\r\n| A | B |\r\n| - | - |\r\n| x | y |\r\n\r\n<div data-custom="yes">Unknown HTML</div>\r\n';
  await importMap(page,{atoms:[makeAtom({title:'Source preservation',content:original}),makeAtom({title:'Target'})],links:[]});
- await focus(page,'Source preservation');await page.getByRole('button',{name:'Визуально',exact:true}).click();
+ await focus(page,'Source preservation');await page.getByRole('button',{name:'Обычный',exact:true}).click();
  const visual=page.getByRole('textbox',{name:'Визуальный текст',exact:true});
  await expect(visual.locator('[data-source-block]')).toHaveCount(2);
  await expect(visual.locator('[data-wiki-reference]')).toHaveText('Alias');

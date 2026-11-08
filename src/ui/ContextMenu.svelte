@@ -7,7 +7,7 @@
  let {count=1,atom,types=[],folders=[],actions=[],onaction,onfolder,onnewfolder,ontype,pinning,onclose,onstate,onpin,onedit,oncreate,onconnect,onmove,onimportance,onappearance,ondelete}:{actions?:Command[];onaction?:(action:Command)=>Promise<unknown>;folders?:{id:string;name:string;color:string;selected:boolean;mixed:boolean}[];onfolder?:(id:string,add:boolean)=>Promise<void>;onnewfolder?:()=>void;count?:number;atom:Atom;types?:AtomType[];ontype?:(type:string)=>Promise<void>;pinning:boolean;onclose:()=>void;onstate:(state:AtomState|'resume')=>unknown;onpin:()=>unknown;onedit:(section?:string)=>void;oncreate:()=>void;onconnect:()=>void;onmove:()=>void;onimportance:(importance:number)=>unknown;onappearance:(appearance:Appearance,importance?:number)=>Promise<void>;ondelete:()=>Promise<void>}=$props();
  const offeredTypes=$derived(types.filter(t=>t.id!=='task'&&t.id!=='builtin.templates:task'));
  const currentType=$derived(offeredTypes.find(t=>t.id===atom.type||t.id.startsWith('builtin.templates:')&&t.id.split(':').pop()===atom.type));
- const states={normal:'Поле',now:'Сейчас',archived:'Архив'};
+ const states={normal:'Обычные',now:'Сейчас',archived:'Архив'};
  let root:HTMLDivElement;let panel=$state<'actions'|'appearance'|'delete'|'folders'>('actions');let appearance=$state<Appearance>((()=>JSON.parse(JSON.stringify(atom.appearance)))());let importance=$state((()=>atom.importance)());let busy=$state(false);let error=$state('');
  async function run(action:()=>unknown){if(busy)return;busy=true;error='';try{await action();}catch(e){error=(e as Error).message;}finally{busy=false;}}
  function back(){if(busy)return;if(panel==='actions')onclose();else panel='actions';}

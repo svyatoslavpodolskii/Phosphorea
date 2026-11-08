@@ -20,7 +20,7 @@ export interface FolderController {
  focus:(folderId:string|null)=>Promise<FolderFocus|null>;
  refresh:()=>Promise<void>;
 }
-export const FOLDER_COLORS=['#93a8b5','#a89bb1','#98ad9b','#b8a58e','#b69a9e','#8faeaf'];
+export const FOLDER_COLORS=['#75aee8','#b398dd','#80b78b','#d3ae6d','#d991a0','#68bfc0'];
 
 /** New contextual descendants inherit memberships inside the public draft
  * transaction. No async event writes, private Core access or link side effects. */

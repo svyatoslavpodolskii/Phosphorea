@@ -5,7 +5,7 @@ const backdrop=(page:Page)=>page.locator('svg.theme-backdrop');
 const transforms=(page:Page)=>backdrop(page).locator('pattern').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('patternTransform')));
 async function boot(page:Page){await page.goto('/');await page.waitForLoadState('networkidle');await expect(page.locator('canvas.map')).toBeVisible();}
 async function setMode(page:Page,mode:string){
- await openSettings(page);
+ await openSettings(page);await page.getByRole('button',{name:'Плагины →',exact:true}).click();await page.locator('.plugin-row').filter({hasText:'Темы и атмосфера'}).getByRole('button',{name:'Настройки',exact:true}).click();
  await page.getByRole('button',{name:'Настроить тему',exact:true}).click();
  await page.getByLabel('Рисунок фона',{exact:true}).selectOption('night-sky');
  await page.getByLabel('Движение фона',{exact:true}).selectOption(mode);
@@ -29,8 +29,8 @@ async function checkPalette(page:Page){
 }
 
 test('four contrast and soft presets apply readable palettes and survive reload',async({page})=>{
- await boot(page);await openSettings(page);
- for(const [name,id] of [['Dark Contrast','dark-contrast'],['Light Contrast','light-contrast'],['Soft Dark','soft-dark'],['Soft Light','soft-light']]){
+ await boot(page);await openSettings(page);await page.getByRole('button',{name:'Плагины →',exact:true}).click();await page.locator('.plugin-row').filter({hasText:'Темы и атмосфера'}).getByRole('button',{name:'Настройки',exact:true}).click();
+ for(const [name,id] of [['Тёмная контрастная','dark-contrast'],['Светлая контрастная','light-contrast'],['Мягкая тёмная','soft-dark'],['Мягкая светлая','soft-light']]){
   await page.getByRole('button',{name,exact:true}).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme',id);await checkPalette(page);
  }
@@ -40,8 +40,8 @@ test('four contrast and soft presets apply readable palettes and survive reload'
 test('camera modes reuse bounded decoration nodes while panning and zooming',async({page})=>{
  await boot(page);await setMode(page,'static');
  const initial=await transforms(page);
- await pan(page);await page.getByRole('button',{name:'Приблизить',exact:true}).click();
- await expect(page.locator('.zoom-controls span')).not.toHaveText('100%');
+ await pan(page);await page.getByRole('slider',{name:'Масштаб карты',exact:true}).fill('70');
+ await expect.poll(()=>page.locator('canvas.map').getAttribute('data-zoom')).not.toBe('1');
  expect(await transforms(page)).toEqual(initial);
  await setMode(page,'world');
  // Retain actual nodes, so replacing the field with an equivalent set also fails.
@@ -49,7 +49,7 @@ test('camera modes reuse bounded decoration nodes while panning and zooming',asy
  const world=await transforms(page);
  await pan(page);await expect.poll(()=>transforms(page)).not.toEqual(world);
  const panTransforms=await transforms(page);
- await page.getByRole('button',{name:'Приблизить',exact:true}).click();
+ await page.getByRole('slider',{name:'Масштаб карты',exact:true}).fill('70');
  await expect.poll(()=>transforms(page)).not.toEqual(panTransforms);
  const matrices=await transforms(page);expect(new Set(matrices).size).toBe(1);
  await setMode(page,'parallax');const parallax=await transforms(page);
@@ -66,7 +66,7 @@ test('camera modes reuse bounded decoration nodes while panning and zooming',asy
 });
 
 test('mode persists through export/import and reduced motion disables decorative movement',async({page})=>{
- await boot(page);await setMode(page,'parallax');await openSettings(page);
+ await boot(page);await setMode(page,'parallax');await openSettings(page);await page.getByRole('button',{name:'Плагины →',exact:true}).click();await page.locator('.plugin-row').filter({hasText:'Темы и атмосфера'}).getByRole('button',{name:'Настройки',exact:true}).click();
  const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Экспорт темы',exact:true}).click();
  const stream=await(await pending).createReadStream();let text='';for await(const chunk of stream!)text+=chunk.toString();
  expect(JSON.parse(text).theme.effects.mode).toBe('parallax');

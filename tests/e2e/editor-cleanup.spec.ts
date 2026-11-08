@@ -11,7 +11,7 @@ for(const mobile of [false,true])test(`editor primary controls and draft cancell
  const editor=page.getByRole('dialog',{name:'Редактор атома'});
  await expect(editor.getByRole('combobox',{name:'Тип',exact:true})).toBeVisible();
  await expect(editor.getByRole('combobox',{name:'Состояние'})).toHaveValue('normal');
- await expect(editor.getByRole('combobox',{name:'Состояние'}).locator('option:checked')).toHaveText('Поле');
+ await expect(editor.getByRole('combobox',{name:'Состояние'}).locator('option:checked')).toHaveText('Обычные');
  await expect(editor.getByRole('toolbar',{name:'Форматирование текста'})).toBeVisible();
  await editor.getByRole('textbox',{name:'Название',exact:true}).fill('Discard this session');
  await (await sourceText(page)).fill('Unsaved body');
@@ -27,12 +27,12 @@ for(const mobile of [false,true])test(`editor primary controls and draft cancell
  await editor.getByRole('button',{name:'Готово',exact:true}).click();
  await expect(editor).toBeHidden();
  await focus(page,'Keep this session');
- await expect(editor.locator('.markdown')).toContainText('Original body');
+ await expect(editor.getByRole('textbox',{name:'Визуальный текст',exact:true})).toContainText('Original body');
  await expect(editor.getByRole('toolbar')).toBeVisible();
  await editor.getByRole('button',{name:'Markdown',exact:true}).click();
  await (await sourceText(page)).fill('Changed body');
- await editor.locator('.note-metadata > summary').click();
- await editor.getByRole('button',{name:'Отложить',exact:true}).click();
+ await editor.getByRole('button',{name:'Меню заметки',exact:true}).click();
+ await expect(editor.getByRole('button',{name:'Отложить',exact:true})).toHaveCount(0);await editor.getByRole('combobox',{name:'Состояние',exact:true}).selectOption('archived');
  await editor.getByRole('button',{name:'Удалить атом',exact:true}).click();
  await editor.locator('.confirm').getByRole('button',{name:'Отмена',exact:true}).click();
  await editor.locator('.note-heading').getByRole('button',{name:'Отмена',exact:true}).click();
@@ -60,7 +60,7 @@ test('legacy task type is preserved but cannot be chosen for other atoms',async(
  await expect(type).toHaveValue('task');
  await expect(type.locator('option:checked')).toHaveText('Задача (устаревший тип)');
  await expect(type.locator('option:checked')).toHaveJSProperty('disabled',true);
- await expect(editor.locator('.markdown')).toContainText('Legacy content');
+ await expect(editor.getByRole('textbox',{name:'Визуальный текст',exact:true})).toContainText('Legacy content');
  await editor.getByRole('textbox',{name:'Название',exact:true}).fill('Legacy task retained');
  await editor.getByRole('button',{name:'Готово',exact:true}).click();
  expect((await readMap(page)).atoms[0].type).toBe('task');
@@ -81,7 +81,7 @@ test('legacy pause can be resumed without offering new postponement',async({page
  };
  // The map uses the viewport centre for a single atom.
  await open();
- await expect(menu.locator('.state-shortcuts').getByRole('button',{name:'Поле',exact:true})).toBeVisible();
+ await expect(menu.locator('.state-shortcuts').getByRole('button',{name:'Обычные',exact:true})).toBeVisible();
  await expect(menu.locator('.state-shortcuts').getByRole('button',{name:/Отложить|Пауза|Возобновить/})).toHaveCount(0);
  await expect(menu.getByRole('button',{name:'Отложить',exact:true})).toHaveCount(0);await menu.getByRole('button',{name:'Закрыть меню атома',exact:true}).click();
  expect((await readMap(page)).atoms[0]).toMatchObject({state:'now',paused:true});

@@ -3,7 +3,7 @@ import {makeAtom} from '../../src/core/model';
 import {focus,importMap,sourceText,openSettings,closeSettings,readMap} from './helpers';
 test.use({viewport:{width:390,height:844},hasTouch:true});
 test('task checkboxes hide markers, inherit task type on Enter and unwrap on Backspace',async({page})=>{
- await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Tasks',content:'- [ ] #task First\n- [ ] Plain'})],links:[]});await focus(page,'Tasks');await page.locator('.note-editor').getByRole('button',{name:'Визуально',exact:true}).click();
+ await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Tasks',content:'- [ ] #task First\n- [ ] Plain'})],links:[]});await focus(page,'Tasks');await page.locator('.note-editor').getByRole('button',{name:'Обычный',exact:true}).click();
  const visual=page.getByRole('textbox',{name:'Визуальный текст',exact:true});await expect(visual.getByRole('checkbox')).toHaveCount(2);await expect(visual).not.toContainText('#task');
  await page.screenshot({path:'artifacts/kinetic-editor-mobile.png'});await expect(visual.locator('[data-note-task=true]')).toHaveCount(1);expect((await visual.getByRole('checkbox').first().boundingBox())!.width).toBeLessThanOrEqual(18);
  await visual.locator('li p').first().click();await page.keyboard.press('End');await page.keyboard.press('Enter');await page.keyboard.type('Second');await expect(visual.locator('[data-note-task=true]')).toHaveCount(2);
@@ -11,7 +11,7 @@ test('task checkboxes hide markers, inherit task type on Enter and unwrap on Bac
  const source=await sourceText(page);await expect(source).toHaveValue(/#task First/);expect((await source.inputValue()).match(/#task/g)).toHaveLength(1);
 });
 test('one formatted block can reveal its Markdown without changing neighboring source',async({page})=>{
- const original='## Heading\r\n\r\n<div data-custom="yes">Keep</div>\r\n';await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Inline source',content:original})],links:[]});await focus(page,'Inline source');await page.locator('.note-editor').getByRole('button',{name:'Визуально',exact:true}).click();
+ const original='## Heading\r\n\r\n<div data-custom="yes">Keep</div>\r\n';await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Inline source',content:original})],links:[]});await focus(page,'Inline source');await page.locator('.note-editor').getByRole('button',{name:'Обычный',exact:true}).click();
  const visual=page.getByRole('textbox',{name:'Визуальный текст',exact:true});await visual.locator('h2').click();await page.keyboard.press('Home');await visual.dispatchEvent('keydown',{key:'Backspace',isComposing:true});await expect(visual.locator('h2')).toHaveText('Heading');await page.keyboard.press('Backspace');
  const block=page.getByRole('textbox',{name:'Исходник блока',exact:true});await expect(block).toBeVisible();await expect(block).toHaveValue(/## Heading/);await block.fill('# Changed');await block.press('Escape');await expect(visual.locator('h1')).toHaveText('Changed');await expect(page.getByRole('dialog',{name:'Редактор атома'})).toBeVisible();
  await page.getByRole('button',{name:'Готово',exact:true}).click();const atom=(await readMap(page)).atoms[0];expect(atom.content).toContain('# Changed');expect(atom.content).toContain('<div data-custom="yes">Keep</div>\r\n');
@@ -29,8 +29,8 @@ test('kanban keeps navigation fixed and deletes only the chosen task',async({pag
  await group.getByRole('button',{name:'Удалить задачу Second',exact:true}).click();await expect(group.getByRole('checkbox')).toHaveCount(1);const saved=(await readMap(page)).atoms[0];expect(saved.content).toContain('#task First');expect(saved.content).not.toContain('Second');expect(saved.content).toContain('- [ ] Plain');expect(saved.state).toBe('normal');
 });
 test('mobile beforeinput continues tasks and deletes their checkbox, while preview hides markers',async({page})=>{
- await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Mobile keys',content:'- [ ] #task First'})],links:[]});await focus(page,'Mobile keys');await expect(page.locator('.markdown')).not.toContainText('#task');await expect(page.locator('.task-mark')).toHaveCount(1);
- await page.locator('.note-editor').getByRole('button',{name:'Визуально',exact:true}).click();const visual=page.getByRole('textbox',{name:'Визуальный текст',exact:true});await visual.locator('p').click();await page.keyboard.press('End');
+ await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Mobile keys',content:'- [ ] #task First'})],links:[]});await focus(page,'Mobile keys');await expect(page.getByRole('textbox',{name:'Визуальный текст',exact:true})).not.toContainText('#task');await expect(page.locator('[data-note-task=true]')).toHaveCount(1);
+ await page.locator('.note-editor').getByRole('button',{name:'Обычный',exact:true}).click();const visual=page.getByRole('textbox',{name:'Визуальный текст',exact:true});await visual.locator('p').click();await page.keyboard.press('End');
  await visual.evaluate(el=>el.dispatchEvent(new InputEvent('beforeinput',{bubbles:true,cancelable:true,inputType:'insertParagraph'})));await page.keyboard.type('Second');await expect(visual.locator('[data-note-task=true]')).toHaveCount(2);
  await page.keyboard.press('Home');await visual.evaluate(el=>el.dispatchEvent(new InputEvent('beforeinput',{bubbles:true,cancelable:true,inputType:'deleteContentBackward'})));await expect(visual.getByRole('checkbox')).toHaveCount(1);await expect(visual).toContainText('Second');
 });

@@ -31,7 +31,7 @@ for(const mobile of [false,true])test(`minimal card and visual appearance persis
  await page.getByRole('button',{name:'Роза',exact:true}).click();await page.getByRole('button',{name:'Закрыть меню атома'}).click();
  expect((await readMap(page)).atoms[0].appearance.color).toBe('#d4a2e5');
  await page.locator('canvas.map').click({position:{x:width/2,y:height/2}});
- await page.getByRole('button',{name:'Просмотр',exact:true}).click();await expect(page.locator('.markdown')).toContainText('Тихое утро');
+ await expect(page.getByRole('textbox',{name:'Визуальный текст',exact:true})).toContainText('Тихое утро');
  expect(await page.getByRole('textbox',{name:'Название',exact:true}).evaluate(el=>document.activeElement===el)).toBe(false);
  await page.getByRole('button',{name:'Markdown',exact:true}).click();
  await (await sourceText(page)).fill('Новая мелодия');

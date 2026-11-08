@@ -7,6 +7,11 @@ it('starts with a single daily note and no calendar setup',async()=>{
  expect(h.atoms).toHaveLength(1);expect(h.links).toHaveLength(0);
  expect(h.atoms[0].properties.dailyDate).toBe('2026-09-17');expect(h.atoms[0].state).toBe('normal');
 });
+it('places a daily near the camera in free space without linking an unrelated note',async()=>{
+ const h=harness({});h.atoms.push(makeAtom({id:'unrelated',title:'Unrelated',x:1200,y:500}));
+ const day=await createDaily(h.api,new Date(2026,10,8),undefined,undefined,{x:1200,y:500});
+ expect(Math.hypot(day.x-1200,day.y-500)).toBeGreaterThan(160);expect(Math.hypot(day.x-1200,day.y-500)).toBeLessThan(400);expect(h.links).toHaveLength(0);expect(day.state).toBe('normal');
+});
 it('rapid daily commands share one creation and open the same day',async()=>{
  const h=harness({years:true,months:true,weeks:true});let run:(()=>unknown)|undefined;
  h.api.commands={add:(command:any)=>{run=command.run;}} as PluginAPI['commands'];

@@ -72,7 +72,9 @@ export class GraphController {
   for(const node of shown.satellites||[])add(node);
  }
  private input():PhysicsInput {const activeIds=activeNeighborhood(this.snapshot,this.bodies,[...this.dragOrigins.keys(),...this.edited]);const core=new Set([...(this.settling||[]),...activeIds]);const all=new Set(core);for(const l of this.snapshot.links){if(core.has(l.from))all.add(l.to);if(core.has(l.to))all.add(l.from);}const allowed=new Set([...all].slice(0,800));const nodes=[...allowed].map(id=>this.bodies.get(id)).filter((b):b is Body=>Boolean(b)).map(b=>({...b,...this.membership.get(b.id),boundary:this.settling?!this.settling.has(b.id):!activeIds.has(b.id),dragged:this.dragOrigins.has(b.id)}));return{nodes,links:this.snapshot.links.filter(l=>allowed.has(l.from)&&allowed.has(l.to)).map(l=>({from:l.from,to:l.to,strength:this.skeleton.has(l.id)?1:.04,distance:this.restLengths.get(l.id)??Math.max(this.prefs.physics.distance,(this.bodies.get(l.from)?.halfWidth||35)+(this.bodies.get(l.to)?.halfWidth||35)+35)*(this.membership.get(l.from)?.branch!==this.membership.get(l.to)?.branch?1.35:1)})),settings:this.prefs.physics,mode:this.prefs.preset,dt:1,reducedMotion:this.reduced};}
- private wake(){if(this.disposed||!this.prefs||this.manualRest)return;this.active=true;this.quiet=0;if(this.interacting||this.paused||document.hidden)return;if(!this.timer)this.timer=setTimeout(()=>this.tick(),16);}
+ private motionEnabled=true;
+ setMotionEnabled(enabled:boolean){if(this.motionEnabled===enabled)return;this.motionEnabled=enabled;this.motionVersion++;if(!enabled){this.active=false;clearTimeout(this.timer);this.timer=undefined;}else this.wake();}
+ private wake(){if(!this.motionEnabled||this.disposed||!this.prefs||this.manualRest)return;this.active=true;this.quiet=0;if(this.interacting||this.paused||document.hidden)return;if(!this.timer)this.timer=setTimeout(()=>this.tick(),16);}
  private async tick(){this.timer=undefined;if(this.disposed||this.busy||this.arranging)return;if(this.paused||document.hidden){this.active=false;this.flush();return;}
   // Pointer, wheel, camera, hit testing and drag always outrank the simulation.
   // A gesture in flight stops the background step outright, and the last stable
@@ -86,28 +88,40 @@ export class GraphController {
   beginDrag(id:string,members?:string[]){
   if(this.dragged)this.cancelDrag();
   this.dragVersion++;if(this.reflow)this.captureRestLengths();this.reflow=undefined;this.layoutVersion++;this.arranging=false;this.motionVersion++;
-  this.dragOrigins.clear();this.responseWeights.clear();this.dragPaint=[];this.settling=undefined;
+  this.dragOrigins.clear();this.responseWeights.clear();this.dragBonds.clear();this.dragEnergy=0;this.dragPaint=[];this.settling=undefined;
   const ids=[...new Set(members||[id])].filter(key=>{const b=this.bodies.get(key);return b&&!b.pinned;});
   if(!ids.length)return;
-  this.heldIds=new Set(ids);this.responseWeights=dragWeights(this.snapshot,ids,this.bodies,this.prefs.physics.distance);
+  this.heldIds=new Set(ids);this.responseWeights=this.motionEnabled?dragWeights(this.snapshot,ids,this.bodies,this.prefs.physics.distance):new Map();
   for(const key of ids)this.responseWeights.set(key,1);
+  this.dragBonds.clear();for(const link of this.snapshot.links){const a=this.bodies.get(link.from),b=this.bodies.get(link.to);if(!a||!b)continue;const length=Math.hypot(a.x-b.x,a.y-b.y);for(const [from,to] of [[a,b],[b,a]]){const list=this.dragBonds.get(from.id)||[];list.push({id:to.id,length});this.dragBonds.set(from.id,list);}}
   this.edited.clear();
   for(const [key] of this.responseWeights){const b=this.bodies.get(key)!;this.dragOrigins.set(key,{x:b.x,y:b.y,resistance:b.resistance});b.vx=b.vy=0;b.target=undefined;this.edited.add(key);}
   this.dragCenter={x:ids.reduce((sum,key)=>sum+this.bodies.get(key)!.x,0)/ids.length,y:ids.reduce((sum,key)=>sum+this.bodies.get(key)!.y,0)/ids.length};
   this.dragged={id,...this.dragCenter,resistance:0};this.active=false;clearTimeout(this.timer);this.timer=undefined;
   this.prepareDragPaint();return {...this.dragCenter};
  }
- drag(id:string,x:number,y:number){
+ private dragBonds=new Map<string,{id:string;length:number}[]>();
+ private dragEnergy=0;
+ advanceDrag(dt=16){if(!this.dragged||this.dragEnergy<.01)return false;if(dt===0)return true;const held=[...this.heldIds].map(id=>this.bodies.get(id)!).filter(Boolean);if(!held.length)return false;this.drag(this.dragged.id,held.reduce((s,b)=>s+b.x,0)/held.length,held.reduce((s,b)=>s+b.y,0)/held.length,dt);return this.dragEnergy>=.01;}
+ drag(id:string,x:number,y:number,dt=16){
   if(this.dragged?.id!==id||!Number.isFinite(x)||!Number.isFinite(y))return;
   const dx=x-this.dragCenter.x,dy=y-this.dragCenter.y;
-  for(const [key,origin] of this.dragOrigins){const b=this.bodies.get(key);if(!b||b.pinned)continue;const weight=this.responseWeights.get(key)!;const tx=origin.x+dx*weight,ty=origin.y+dy*weight;if(this.heldIds.has(key)){b.x=tx;b.y=ty;b.vx=b.vy=0;}else{b.vx=(b.vx+(tx-b.x)*.16)*.68;b.vy=(b.vy+(ty-b.y)*.16)*.68;const speed=Math.hypot(b.vx,b.vy);if(speed>32){b.vx*=32/speed;b.vy*=32/speed;}b.x+=b.vx;b.y+=b.vy;}}
+  const step=Math.max(.25,Math.min(2,dt/16));this.dragEnergy=0;
+  // Held bodies follow the hand; links transmit tension, never its translation.
+  // Slack leaves the neighbour free while the held atom moves around it.
+  for(const key of this.heldIds){const b=this.bodies.get(key),o=this.dragOrigins.get(key);if(b&&o){b.x=o.x+dx;b.y=o.y+dy;b.vx=b.vy=0;}}
+  for(const [key,origin] of this.dragOrigins){const b=this.bodies.get(key);if(!b||b.pinned||this.heldIds.has(key))continue;
+   let fx=(origin.x-b.x)*.006,fy=(origin.y-b.y)*.006;
+   for(const bond of this.dragBonds.get(key)||[]){const a=this.bodies.get(bond.id);if(!a)continue;const x=a.x-b.x,y=a.y-b.y,d=Math.max(.01,Math.hypot(x,y)),tension=Math.max(0,d-bond.length)*.035;fx+=x/d*tension;fy+=y/d*tension;}
+   b.vx=(b.vx+fx*step)*Math.pow(.72,step);b.vy=(b.vy+fy*step)*Math.pow(.72,step);const speed=Math.hypot(b.vx,b.vy);if(speed>24){b.vx*=24/speed;b.vy*=24/speed;}b.x+=b.vx*step;b.y+=b.vy*step;this.dragEnergy+=Math.hypot(b.vx,b.vy)+Math.hypot(fx,fy);
+  }
   for(const entry of this.dragPaint){const body=this.bodies.get(entry.node.id);if(body){entry.node.x=body.x;entry.node.y=body.y;}else if(entry.node.members){const members=entry.node.members.map(id=>this.bodies.get(id)).filter((b):b is Body=>Boolean(b));if(members.length){entry.node.x=members.reduce((v,b)=>v+b.x,0)/members.length;entry.node.y=members.reduce((v,b)=>v+b.y,0)/members.length;}}}
  }
  async endDrag(stateDrop:boolean){
   this.motionVersion++;const version=this.dragVersion,signature=this.signature,provider=this.providers.motion(this.prefs.graphModel);if(!this.dragged)return;
   const origins=new Map(this.dragOrigins),positions:PositionUpdate[]=[],wasDirty=new Set([...origins.keys()].filter(id=>this.dirty.has(id)));
   for(const [id,origin] of origins){const b=this.bodies.get(id);if(!b||b.pinned)continue;if(stateDrop)Object.assign(b,origin);else b.resistance=0;b.vx=b.vy=0;this.dirty.delete(id);positions.push({id,x:b.x,y:b.y,resistance:b.resistance});}
-  this.dragged=undefined;this.dragOrigins.clear();this.responseWeights.clear();this.dragPaint=[];this.manualRest=true;this.active=false;clearTimeout(this.timer);this.timer=undefined;
+  this.dragged=undefined;this.dragOrigins.clear();this.responseWeights.clear();this.dragBonds.clear();this.dragEnergy=0;this.dragPaint=[];this.manualRest=true;this.active=false;clearTimeout(this.timer);this.timer=undefined;
   try{await this.persist(positions,true);}catch(error){
    if(!this.disposed&&version===this.dragVersion&&signature===this.signature&&provider===this.providers.motion(this.prefs.graphModel)){for(const [id,origin] of origins){const body=this.bodies.get(id);if(body&&!body.pinned){Object.assign(body,origin,{vx:0,vy:0});if(wasDirty.has(id))this.dirty.add(id);}}this.paint();}
    throw error;
@@ -118,7 +132,7 @@ export class GraphController {
  cancelDrag(){
   this.dragVersion++;this.motionVersion++;
   for(const [id,origin] of this.dragOrigins){const b=this.bodies.get(id);if(b&&!b.pinned)Object.assign(b,origin,{vx:0,vy:0});}
-  this.dragOrigins.clear();this.responseWeights.clear();this.dragPaint=[];this.dragged=undefined;this.paint();
+  this.dragOrigins.clear();this.responseWeights.clear();this.dragBonds.clear();this.dragEnergy=0;this.dragPaint=[];this.dragged=undefined;this.paint();
  }
  async flush(){if(this.interacting||this.persistBusy||!this.dirty.size||this.disposed)return;const ids=[...this.dirty].filter(id=>!this.dragOrigins.has(id));if(!ids.length)return;const positions=ids.map(id=>this.bodies.get(id)).filter((b):b is Body=>Boolean(b)).map(b=>({id:b.id,x:b.x,y:b.y,resistance:b.resistance}));ids.forEach(id=>this.dirty.delete(id));this.persistBusy=true;try{await this.persist(positions,false);this.persistedAt=Date.now();}catch(e){ids.forEach(id=>this.dirty.add(id));this.active=false;this.error(e as Error);}finally{this.persistBusy=false;}}
  close(){this.disposed=true;clearTimeout(this.timer);this.projectId++;this.layoutVersion++;}

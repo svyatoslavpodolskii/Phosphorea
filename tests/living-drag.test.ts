@@ -11,6 +11,12 @@ const controllers:GraphController[]=[];
 beforeEach(()=>{vi.useFakeTimers({toFake:['Date','setTimeout','clearTimeout']});vi.stubGlobal('document',{hidden:false});});
 afterEach(()=>{controllers.splice(0).forEach(c=>c.close());vi.useRealTimers();vi.unstubAllGlobals();vi.restoreAllMocks();});
 const atom=(id:string,x:number,y=0,pinned=false)=>makeAtom({id,title:id,x,y,pinned});
+it('a linked atom can orbit a neighbour without carrying it around as a rigid pair',async()=>{
+ const h=await setup({atoms:[atom('hand',0,-220),atom('anchor',0,0)],links:[makeLink('hand','anchor')]});h.controller.beginDrag('hand');
+ for(let i=0;i<=100;i++){const angle=-Math.PI/2+i*Math.PI/100;h.controller.drag('hand',Math.cos(angle)*220,Math.sin(angle)*220);h.controller.advanceDrag(16);}
+ expect(h.node('hand').x).toBeCloseTo(0);expect(h.node('hand').y).toBeCloseTo(220);expect(Math.hypot(h.node('anchor').x,h.node('anchor').y)).toBeLessThan(.01);
+ h.controller.drag('hand',0,700);for(let i=0;i<30;i++)h.controller.advanceDrag(16);expect(h.node('anchor').y).toBeGreaterThan(0);h.controller.cancelDrag();expect(h.node('anchor')).toMatchObject({x:0,y:0});
+});
 const still=(input:PhysicsInput):PhysicsOutput=>({nodes:input.nodes,energy:0});
 async function setup(data:Snapshot,step:PhysicsProvider['step']=still){
  const providers=new GraphProviders();providers.physics.set('motion',{id:'motion',name:'Motion',step});
@@ -30,10 +36,10 @@ it('tracks the hand exactly, reverses without drift and restores the entire resp
  const h=await setup(data);const before=data.atoms.map(a=>({id:a.id,x:a.x,y:a.y}));
  h.controller.setInteracting(true);h.controller.beginDrag('a');const retained=h.model,renderCount=h.render.mock.calls.length;
  h.controller.drag('a',100,50);const follower={x:h.node('b').x,y:h.node('b').y};
- expect(h.node('a')).toMatchObject({x:100,y:50});expect(follower.x).toBeGreaterThan(200);expect(follower.x).toBeLessThan(300);
+ expect(h.node('a')).toMatchObject({x:100,y:50});expect(follower.x).toBe(200);expect(follower.x).toBeLessThan(300);
  for(let i=0;i<100;i++)h.controller.drag('a',i-100,i*2);
  h.controller.drag('a',100,50);expect(h.node('b').x).not.toBe(follower.x);expect(Number.isFinite(h.node('b').y)).toBe(true);
- for(let i=0;i<160;i++)h.controller.drag('a',0,0);expect(h.node('b').x).toBeCloseTo(200,5);expect(h.node('b').y).toBeCloseTo(0,5);
+ for(let i=0;i<160;i++)h.controller.drag('a',0,0);expect(h.node('b').x).toBeCloseTo(200,5);expect(Math.abs(h.node('b').y)).toBeLessThan(5);
  h.controller.drag('a',100,50);expect(h.model).toBe(retained);expect(h.render).toHaveBeenCalledTimes(renderCount);
  expect(h.node('pin')).toMatchObject({x:400,y:0});expect(h.node('behind')).toMatchObject({x:600,y:0});expect(h.node('island')).toMatchObject({x:30,y:100});
  h.controller.cancelDrag();for(const p of before)expect(h.node(p.id)).toMatchObject(p);

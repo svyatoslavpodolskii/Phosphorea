@@ -6,7 +6,7 @@ export type Permission='atoms.read'|'atoms.write'|'links.read'|'links.write'|'gr
 export const PERMISSIONS:Permission[]=['atoms.read','atoms.write','links.read','links.write','graph','ui','storage','settings'];
 export type SettingField={key:string;label:string}&({type:'boolean';default:boolean}|{type:'text';default:string}|{type:'range';default:number;min:number;max:number;step:number}|{type:'select';default:string;options:{value:string;label:string}[]});
 export interface Manifest {id:string;name:string;version:string;apiVersion:1;permissions:Permission[];description?:string;settings?:SettingField[]}
-export interface CommandContext {folderId?:string}
+export interface CommandContext {folderId?:string;position?:{x:number;y:number}}
 export interface Command {id:string;name:string;run:(atomId?:string,context?:CommandContext)=>unknown|Promise<unknown>}
 export interface PluginView {id:string;name:string;render:()=>string|Promise<string>;onAction?:(action:string,values:Record<string,string>)=>unknown|Promise<unknown>}
 export interface AtomType {id:string;name:string;icon?:string;appearance?:Appearance;content?:string}

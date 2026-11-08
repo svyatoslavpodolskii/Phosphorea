@@ -1,9 +1,12 @@
 ﻿import {it,expect} from 'vitest';
 import {THEMES,createTheme,contrast,parseTheme,themeFile,patternImage,grainImage,validateTheme} from '../src/core/themes';
+it('high-contrast variants retain strong text, edges and their rendering flag through export',()=>{
+ for(const id of ['ink','chalk','paper-contrast','meadow-contrast']){const t=THEMES.find(t=>t.id===id)!;expect(t.base.contrast).toBe(1);expect(contrast(t.colors.edge,t.colors.background)).toBeGreaterThan(7);for(const bg of [t.colors.background,t.colors.surface,t.colors.surfaceAlt])expect(contrast(t.colors.muted,bg)).toBeGreaterThanOrEqual(7);expect(parseTheme(themeFile(t)).base.contrast).toBe(1);}
+});
 it('provides distinct readable contrast and soft presets without changing the default',()=>{
  expect(THEMES[0].id).toBe('phosphor');
  const presets=['dark-contrast','light-contrast','soft-dark','soft-light'].map(id=>THEMES.find(t=>t.id===id)!);
- expect(presets.map(t=>t.name)).toEqual(['Dark Contrast','Light Contrast','Soft Dark','Soft Light']);
+ expect(presets.map(t=>t.name)).toEqual(['Тёмная контрастная','Светлая контрастная','Мягкая тёмная','Мягкая светлая']);
  expect(presets.map(t=>t.dark)).toEqual([true,false,true,false]);
  expect(new Set(presets.map(t=>t.colors.background)).size).toBe(4);
  for(const t of presets){
