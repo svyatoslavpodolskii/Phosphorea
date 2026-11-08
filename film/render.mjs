@@ -26,7 +26,7 @@ try{
   await writeFile(resolve(out,'stills.json'),JSON.stringify(samples,null,2));console.log('Rendered',samples.length,'shot proofs.');
  }else{
   const ffmpeg=execFileSync('python',['-c','import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())'],{encoding:'utf8',env:{...process.env,PYTHONIOENCODING:'utf-8'}}).trim();
-  const target=resolve(out,'Phosphorea_Kinetic_Film_v5_1080x1920_60fps.mp4');
+  const target=resolve(out,'Phosphorea_Kinetic_Film_v6_1080x1920_60fps.mp4');
   encoder=spawn(ffmpeg,['-y','-v','error','-f','image2pipe','-vcodec','mjpeg','-framerate',String(timeline.fps),'-i','pipe:0','-i',resolve(out,'master.wav'),'-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-colorspace','bt709','-color_primaries','bt709','-color_trc','bt709','-c:a','aac','-b:a','256k','-movflags','+faststart','-shortest','-metadata','title=Phosphorea — от одной мысли до целого мира','-metadata','artist=Svyatoslav Podolskii',target],{stdio:['pipe','inherit','inherit']});
   const completed=once(encoder,'close');encoder.stdin.on('error',()=>{});
   const total=Math.round(timeline.duration*timeline.fps),started=Date.now();

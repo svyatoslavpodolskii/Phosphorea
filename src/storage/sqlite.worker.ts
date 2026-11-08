@@ -1,7 +1,9 @@
 import {restoreDatabase} from './restore';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import {migrate} from './schema';
-import {snapshot,transactWithRetry} from './operations';
+import {snapshot,transact,transactWithRetry} from './operations';
+import {exportRecords,applyRecords,conflicts,resolveConflict,initializeActor} from '../sync/storage';
+import {identity} from '../sync/crypto';
 import {catalog,changeWorkspace,removeWorkspace} from './workspaces';
 let db:any;let sqlite:any;let rootDb:any;let rootPool:any;let restored=false;
 async function open(requested?:string) {
@@ -9,7 +11,7 @@ async function open(requested?:string) {
  sqlite=await sqlite3InitModule();
  const pool=await sqlite.installOpfsSAHPoolVfs({name:'phosphored-opfs',directory:'.phosphored',initialCapacity:8});
  rootPool=pool;const candidate=new pool.OpfsSAHPoolDb('/phosphored.sqlite3');
- try {migrate(candidate);rootDb=candidate;await cleanupDeleted();const list=catalog(rootDb);const current=requested||list.current;if(!list.items.some(w=>w.id===current))throw Error('Хранилище не найдено.');if(current==='default'){db=rootDb;}else{if(!/^[a-f0-9-]{36}$/.test(current))throw Error('Некорректный идентификатор хранилища.');const space=await sqlite.installOpfsSAHPoolVfs({name:'phosphored-opfs-'+current,directory:'.phosphored-'+current,initialCapacity:4});const target=new space.OpfsSAHPoolDb('/phosphored.sqlite3');try{migrate(target);db=target;}catch(e){target.close();throw e;}}if(requested)changeWorkspace(rootDb,'select',current);} catch(e){candidate.close();throw e;}
+ try {migrate(candidate);rootDb=candidate;await cleanupDeleted();const list=catalog(rootDb);const current=requested||list.current;if(!list.items.some(w=>w.id===current))throw Error('Хранилище не найдено.');if(current==='default'){db=rootDb;}else{if(!/^[a-f0-9-]{36}$/.test(current))throw Error('Некорректный идентификатор хранилища.');const space=await sqlite.installOpfsSAHPoolVfs({name:'phosphored-opfs-'+current,directory:'.phosphored-'+current,initialCapacity:4});const target=new space.OpfsSAHPoolDb('/phosphored.sqlite3');try{migrate(target);db=target;}catch(e){target.close();throw e;}}const device=await identity().catch(()=>undefined);if(device)initializeActor(db,device.id);if(requested)changeWorkspace(rootDb,'select',current);} catch(e){candidate.close();throw e;}
 }
 async function cleanupDeleted(){
  const pending=JSON.parse(rootDb.selectValue("SELECT value FROM settings WHERE key='workspace-deletions'")||'[]') as string[];const remaining:string[]=[];
@@ -23,6 +25,10 @@ self.onmessage=({data:{id,method,args}})=>{queue=queue.then(async()=>{
  if(method==='open')await open(args[0]);
  else {if(restored)throw Error('Reload required after restore');if(!db)throw Error('База не открыта.');
  if(method==='snapshot')result=snapshot(db);
+ else if(method==='syncExport')result=exportRecords(db);
+ else if(method==='syncApply')result=applyRecords(db,args[0],transact);
+ else if(method==='syncConflicts')result=conflicts(db);
+ else if(method==='syncResolve')result=resolveConflict(db,args[0],args[1],args[2],transact);
  else if(method==='workspaces')result=catalog(rootDb);
  else if(method==='createWorkspace')result=changeWorkspace(rootDb,'create',args[0]);
  else if(method==='renameWorkspace')result=changeWorkspace(rootDb,'rename',args[1],args[0]);

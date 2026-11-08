@@ -74,6 +74,8 @@ click(action('03_living_drag',1.22),.022,'air')
 for i in range(6):click(action('11_customization',i*.6),.017)
 click(action('10_suggestions',1.6),.024)
 for name in ['03_living_drag','06_link','08_lasso','17_folder_navigation']:click(action(name,.1),.028,'air')
+for point in [.6,1.9,3.7]:click(action('21_sync',point),.017)
+click(action('21_sync',3.8),.018,'air')
 
 # Seamless musical release. Keep a low spatial tail through the brief black.
 release_start=SILENCE-1.4

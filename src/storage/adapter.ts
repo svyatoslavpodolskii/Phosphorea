@@ -15,6 +15,10 @@ export class SQLiteAdapter implements StorageAdapter {
  try{await this.call('open',requested||new URLSearchParams(location.search).get('workspace')||undefined);}catch(e){this.close();throw e;}
  }
  snapshot(){return this.call<Snapshot>('snapshot');}
+ syncExport(){return this.call<import('../sync/records').SyncRecord[]>('syncExport');}
+ syncApply(records:unknown){return trackSave(()=>this.call<{received:number;conflicts:number}>('syncApply',records));}
+ syncConflicts(){return this.call<import('../sync/records').SyncRecord[]>('syncConflicts');}
+ syncResolve(key:string,expected:string,choice:string){return trackSave(()=>this.call<void>('syncResolve',key,expected,choice));}
  transaction(ops:Mutation[]){return trackSave(()=>this.call<void>('transaction',ops));}
  getSetting<T>(key:string){return this.call<T|undefined>('getSetting',key);}
  restoreDatabase(bytes:Uint8Array){return trackSave(()=>this.call<void>('restoreDatabase',bytes));}

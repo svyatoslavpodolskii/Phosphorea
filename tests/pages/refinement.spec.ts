@@ -7,11 +7,11 @@ test('first visit offers a tour, completes without editing data and can replay',
  await page.goto('/Phosphorea/');await expect(page.getByRole('dialog',{name:'Знакомство с Phosphorea'})).toBeVisible();
  await page.screenshot({path:'artifacts/refinement-089-welcome.png'});
  await page.getByRole('button',{name:'Начать тур',exact:true}).click();
- for(let i=0;i<7;i++){
+ for(let i=0;i<8;i++){
   const card=page.getByRole('dialog',{name:'Тур по карте'});await expect(card).toBeVisible();
   const b=(await card.boundingBox())!;expect(b.x).toBeGreaterThanOrEqual(0);expect(b.x+b.width).toBeLessThanOrEqual(391);expect(b.y+b.height).toBeLessThanOrEqual(845);
   if(i===1)await page.screenshot({path:'artifacts/refinement-089-tour.png'});
-  await page.getByRole('button',{name:i===6?'Готово':'Дальше',exact:true}).click();
+  await page.getByRole('button',{name:i===7?'Готово':'Дальше',exact:true}).click();
  }
  await expect(page.locator('footer')).toContainText('0 атомов');await expect(page.locator('.zoom-control')).toHaveClass(/wheel/);
  await page.reload();await expect(page.locator('footer')).toBeVisible();await expect(page.locator('.tour-layer')).toHaveCount(0);

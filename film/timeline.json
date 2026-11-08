@@ -3,7 +3,7 @@
   "width": 1080,
   "height": 1920,
   "fps": 60,
-  "duration": 87.0,
+  "duration": 94.2,
   "shots": [
     {
       "id": "00_empty",
@@ -289,9 +289,24 @@
       "sourceDuration": 0.6
     },
     {
+      "id": "title_21_sync",
+      "module": "title",
+      "title": "Продолжай",
+      "duration": 1.2,
+      "sourceDuration": 1.2,
+      "start": 59.4
+    },
+    {
+      "id": "21_sync",
+      "module": "sync",
+      "duration": 6,
+      "sourceDuration": 6,
+      "start": 60.6
+    },
+    {
       "id": "22_growth",
       "module": "growth",
-      "start": 59.4,
+      "start": 66.6,
       "duration": 6,
       "sourceDuration": 6,
       "lead": 0,
@@ -302,14 +317,14 @@
       "module": "title",
       "title": "По-своему",
       "variant": "",
-      "start": 65.4,
+      "start": 72.6,
       "duration": 0.6,
       "sourceDuration": 0.6
     },
     {
       "id": "24_acceleration",
       "module": "growth",
-      "start": 66.0,
+      "start": 73.2,
       "duration": 3.6,
       "variant": "rapid",
       "sourceDuration": 3.6,
@@ -319,7 +334,7 @@
     {
       "id": "25_silence",
       "module": "genesis",
-      "start": 69.6,
+      "start": 76.8,
       "duration": 1.8,
       "variant": "black",
       "sourceDuration": 1.8,
@@ -329,7 +344,7 @@
     {
       "id": "26_world",
       "module": "world",
-      "start": 71.4,
+      "start": 78.6,
       "duration": 6,
       "sourceDuration": 6,
       "lead": 0,
@@ -338,7 +353,7 @@
     {
       "id": "27_logo",
       "module": "logo",
-      "start": 77.4,
+      "start": 84.6,
       "duration": 2.4,
       "sourceDuration": 2.4,
       "lead": 0,
@@ -347,7 +362,7 @@
     {
       "id": "28_end",
       "module": "end",
-      "start": 79.8,
+      "start": 87.0,
       "duration": 4.8,
       "sourceDuration": 4.8,
       "lead": 0,
@@ -356,7 +371,7 @@
     {
       "id": "29_github",
       "module": "availability",
-      "start": 84.6,
+      "start": 91.8,
       "duration": 2.4,
       "sourceDuration": 2.4
     }

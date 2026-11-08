@@ -27,6 +27,10 @@ export function restoreDatabase(current:Database,staged:Database){
    for(const row of rows.get(table)!){if(table==='settings'&&row.key==='workspace-catalog')continue;current.exec({sql,bind:columns.map(c=>row[c])});}
   }
   if(catalog!==undefined)current.exec({sql:'INSERT INTO settings VALUES(?,?)',bind:['workspace-catalog',catalog]});
+  // A restore is a new branch even on the same physical device. Never reuse
+  // counters from a copied/older database to overwrite unseen offline edits.
+  current.exec({sql:'DELETE FROM settings WHERE key=?',bind:['sync:local-actor']});
+  current.exec({sql:'DELETE FROM settings WHERE substr(key,1,?)=?',bind:['sync:trusted:'.length,'sync:trusted:']});
   if(current.selectObjects('PRAGMA foreign_key_check').length)throw Error('Нарушены связи в копии.');
   current.exec('COMMIT');
  }catch(e){current.exec('ROLLBACK');throw e;}
