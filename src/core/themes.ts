@@ -44,7 +44,7 @@ export function validateTheme(value:unknown):Theme{
  const e=t.effects;if(e!==undefined&&(!e||!['none','daisies','stars','fireflies','night-sky'].includes(e.pattern)||(e.mode!==undefined&&!['static','world','parallax'].includes(e.mode))||[e.grain,e.density,e.strength].some(n=>typeof n!=='number'||!Number.isFinite(n)||n<0||n>1)))throw Error('Некорректные параметры фона.');
  return createTheme(t.id,t.name.trim(),base as ThemeBase,e);
 }
-export function parseTheme(text:string){if(text.length>16000)throw Error('Файл темы слишком большой.');const input=JSON.parse(text);if(input.format!=='phosphored-theme'||![1,2].includes(input.version))throw Error('Выберите файл темы Posphorea.');const theme=validateTheme(input.theme);return validateTheme({...theme,id:theme.id.startsWith('custom-')?theme.id:'custom-'+theme.id});}
+export function parseTheme(text:string){if(text.length>16000)throw Error('Файл темы слишком большой.');const input=JSON.parse(text);if(input.format!=='phosphored-theme'||![1,2].includes(input.version))throw Error('Выберите файл темы Phosphorea.');const theme=validateTheme(input.theme);return validateTheme({...theme,id:theme.id.startsWith('custom-')?theme.id:'custom-'+theme.id});}
 export function themeFile(value:Theme){const theme=validateTheme(value);return JSON.stringify({format:'phosphored-theme',version:2,theme:{id:theme.id,name:theme.name,base:theme.base,effects:theme.effects}},null,2);}
 export function currentTheme(id:string,custom:Theme[]=[]){return custom.find(t=>t.id===id)||THEMES.find(t=>t.id===id)||THEMES[0];}
 /** Disambiguate display names without rewriting a user's imported theme data. */

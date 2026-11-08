@@ -27,8 +27,8 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: null,
       manifest: {
-        name: 'Posphorea — живая карта',
-        short_name: 'Posphorea',
+        name: 'Phosphorea — живая карта',
+        short_name: 'Phosphorea',
         lang: 'ru',
         start_url: '.',
         display: 'standalone',

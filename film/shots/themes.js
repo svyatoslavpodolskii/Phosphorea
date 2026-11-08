@@ -1,0 +1,3 @@
+import {background,graph,themes,text,smooth} from '../engine.js';
+function blend(a,b,p){return '#'+[0,2,4].map(i=>Math.round(parseInt(a.slice(1+i,3+i),16)*(1-p)+parseInt(b.slice(1+i,3+i),16)*p).toString(16).padStart(2,'0')).join('');}
+export default function(c,t){const k=Math.min(3,Math.floor(t/1.2)),next=Math.min(3,k+1),p=smooth((t%1.2-.8)/.4),theme=Object.fromEntries(Object.keys(themes[k]).map(key=>[key,blend(themes[k][key],themes[next][key],p)]));background(c,t,theme,k===3);graph(c,t,{count:840,zoom:.68,cx:960,cy:540,theme,labels:true});text(c,['Контраст','Бумага','Чёрный бархат','Звёздная ночь'][p>.5?next:k],960,-180,40,theme.ink,500,'center');}

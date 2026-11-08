@@ -1,0 +1,364 @@
+{
+  "title": "Phosphorea — от одной мысли до целого мира",
+  "width": 1080,
+  "height": 1920,
+  "fps": 60,
+  "duration": 87.0,
+  "shots": [
+    {
+      "id": "00_empty",
+      "module": "genesis",
+      "start": 0,
+      "duration": 1.2,
+      "variant": "empty",
+      "sourceDuration": 1.2,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "01_hello",
+      "module": "genesis",
+      "start": 1.2,
+      "duration": 4.2,
+      "variant": "hello",
+      "sourceDuration": 4.2,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_02_spawn",
+      "module": "title",
+      "title": "Придумывай",
+      "variant": "",
+      "start": 5.4,
+      "duration": 1.2,
+      "sourceDuration": 1.2
+    },
+    {
+      "id": "02_spawn",
+      "module": "spawn",
+      "start": 6.6,
+      "duration": 3,
+      "sourceDuration": 3,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_03_living_drag",
+      "module": "title",
+      "title": "Перемещай",
+      "variant": "",
+      "start": 9.6,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "03_living_drag",
+      "module": "living_drag",
+      "start": 10.2,
+      "duration": 2.4,
+      "sourceDuration": 2.4,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_06_link",
+      "module": "title",
+      "title": "Связывай",
+      "variant": "",
+      "start": 12.6,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "06_link",
+      "module": "link",
+      "start": 13.2,
+      "duration": 1.8,
+      "sourceDuration": 1.8,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_08_lasso",
+      "module": "title",
+      "title": "Объединяй",
+      "variant": "",
+      "start": 15.0,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "08_lasso",
+      "module": "lasso",
+      "start": 15.6,
+      "duration": 1.8,
+      "sourceDuration": 1.8,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "09_folder",
+      "module": "folder",
+      "start": 17.4,
+      "duration": 1.8,
+      "sourceDuration": 1.8,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_10_editor",
+      "module": "title",
+      "title": "Записывай",
+      "variant": "",
+      "start": 19.2,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "10_editor",
+      "module": "editor",
+      "start": 19.8,
+      "duration": 4.8,
+      "sourceDuration": 4.8,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_10_suggestions",
+      "module": "title",
+      "title": "Замечай связи",
+      "variant": "",
+      "start": 24.6,
+      "duration": 1.2,
+      "sourceDuration": 1.2
+    },
+    {
+      "id": "10_suggestions",
+      "module": "suggestions",
+      "start": 25.8,
+      "duration": 3.6,
+      "sourceDuration": 3.6,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_12_kanban",
+      "module": "title",
+      "title": "Действуй",
+      "variant": "",
+      "start": 29.4,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "12_kanban",
+      "module": "kanban",
+      "start": 30.0,
+      "duration": 3.6,
+      "sourceDuration": 3.6,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_11_customization",
+      "module": "title",
+      "title": "Выбирай",
+      "variant": "",
+      "start": 33.6,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "11_customization",
+      "module": "customization",
+      "start": 34.2,
+      "duration": 3.6,
+      "sourceDuration": 3.6,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_04_physics_control",
+      "module": "title",
+      "title": "Настраивай",
+      "variant": "",
+      "start": 37.8,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "04_physics_control",
+      "module": "physics",
+      "start": 38.4,
+      "duration": 1.8,
+      "variant": "control",
+      "sourceDuration": 1.8,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "05_physics_world",
+      "module": "physics",
+      "start": 40.2,
+      "duration": 1.2,
+      "sourceDuration": 1.2,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_13_themes",
+      "module": "title",
+      "title": "Меняй настроение",
+      "variant": "",
+      "start": 41.4,
+      "duration": 1.2,
+      "sourceDuration": 1.2
+    },
+    {
+      "id": "13_themes",
+      "module": "themes",
+      "start": 42.6,
+      "duration": 4.8,
+      "sourceDuration": 4.8,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_14_search",
+      "module": "title",
+      "title": "Находи",
+      "variant": "",
+      "start": 47.4,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "14_search",
+      "module": "search",
+      "start": 48.0,
+      "duration": 4.2,
+      "sourceDuration": 4.2,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_15_pin",
+      "module": "title",
+      "title": "Закрепляй",
+      "variant": "",
+      "start": 52.2,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "15_pin",
+      "module": "pin",
+      "start": 52.8,
+      "duration": 1.8,
+      "sourceDuration": 1.8,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_17_folder_navigation",
+      "module": "title",
+      "title": "Погружайся",
+      "variant": "",
+      "start": 54.6,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "17_folder_navigation",
+      "module": "folder",
+      "start": 55.2,
+      "duration": 3.6,
+      "variant": "navigate",
+      "sourceDuration": 3.6,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_22_growth",
+      "module": "title",
+      "title": "Твори",
+      "variant": "",
+      "start": 58.8,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "22_growth",
+      "module": "growth",
+      "start": 59.4,
+      "duration": 6,
+      "sourceDuration": 6,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "title_24_acceleration",
+      "module": "title",
+      "title": "По-своему",
+      "variant": "",
+      "start": 65.4,
+      "duration": 0.6,
+      "sourceDuration": 0.6
+    },
+    {
+      "id": "24_acceleration",
+      "module": "growth",
+      "start": 66.0,
+      "duration": 3.6,
+      "variant": "rapid",
+      "sourceDuration": 3.6,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "25_silence",
+      "module": "genesis",
+      "start": 69.6,
+      "duration": 1.8,
+      "variant": "black",
+      "sourceDuration": 1.8,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "26_world",
+      "module": "world",
+      "start": 71.4,
+      "duration": 6,
+      "sourceDuration": 6,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "27_logo",
+      "module": "logo",
+      "start": 77.4,
+      "duration": 2.4,
+      "sourceDuration": 2.4,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "28_end",
+      "module": "end",
+      "start": 79.8,
+      "duration": 4.8,
+      "sourceDuration": 4.8,
+      "lead": 0,
+      "cue": ""
+    },
+    {
+      "id": "29_github",
+      "module": "availability",
+      "start": 84.6,
+      "duration": 2.4,
+      "sourceDuration": 2.4
+    }
+  ]
+}

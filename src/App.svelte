@@ -134,7 +134,7 @@
   async function layout(id:string){menu=false;try{const positions=await runtime.layouts.get(id)!.run(structuredClone(core.data));for(const p of positions){const a=core.data.atoms.find(a=>a.id===p.id);if(!a)throw Error('Unknown atom');if(!a.pinned)await core.update(p.id,{x:p.x,y:p.y,spatial:{resistance:0}});}}catch(e){error=(e as Error).message;}}
 </script>
 <svelte:window onpointerdown={e=>{if(searchOpen&&!(e.target as Element).closest('.search'))collapseSearch();}}/>
-<svelte:head><title>Posphorea — ваша живая карта</title></svelte:head>
+<svelte:head><title>Phosphorea — ваша живая карта</title></svelte:head>
 <main data-navigation="idle" class:map-interacting={fieldInteracting} class:booting={!ready} class:app-ready={ready}>{#if ready}<ThemeBackdrop {camera}/>{/if}
  {#if ready&&folderProjection&&!board}
   <FolderTerritories {territories} {camera} width={view.width} height={view.height} activeId={activeFolder}/>

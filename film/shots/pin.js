@@ -1,0 +1,2 @@
+import {background,little,node,link,icon,touch,themes} from '../engine.js';
+export default function(c,t){background(c,t);c.save();c.translate(960,520);c.scale(1.55,1.55);const ns=little.slice(0,5).map((n,i)=>({...n,x:i?n.x*Math.cos(t*.6)-n.y*Math.sin(t*.6):0,y:i?n.x*Math.sin(t*.6)+n.y*Math.cos(t*.6):0}));for(let i=1;i<ns.length;i++)link(c,ns[0],ns[i],themes[0],.6,1.8);ns.forEach(n=>node(c,n,{glow:!n.x}));icon(c,'pin',0,-85,29,'#f2f2f2');c.restore();}

@@ -1,0 +1,2 @@
+import {background,node,text,ease,spring,themes} from '../engine.js';
+export default function(c,t,s){background(c,t);if(s.variant==='black'){c.fillStyle='#000000';c.fillRect(-4000,-4000,10000,10000);return;}if(s.variant==='empty')return;node(c,{x:960,y:510,r:43,color:'#eeeeee'},{scale:spring(t/.65),label:false,glow:true});if(t>=1.2){c.save();c.globalAlpha=ease((t-1.2)/.35);text(c,'Знакомься. Это атом.',960,700,48,themes[0].ink,400,'center');c.restore();}}

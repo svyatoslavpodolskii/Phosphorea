@@ -7,8 +7,10 @@ const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.wasm
 createServer(async(req,res)=>{
  try{
   let path=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
-  if(path==='/Different-Repo'){res.writeHead(301,{Location:'/Different-Repo/'});res.end();return;}
-  if(path.startsWith('/Different-Repo/'))path=path.slice('/Different-Repo'.length);
+  for(const prefix of ['/Different-Repo','/Phosphora','/Phosphorea']){
+   if(path===prefix){res.writeHead(301,{Location:prefix+'/'});res.end();return;}
+   if(path.startsWith(prefix+'/')){path=path.slice(prefix.length);break;}
+  }
   let file=resolve(root,'.'+path);
   if(file!==root&&!file.startsWith(root+sep))throw Error('Invalid path');
   if((await stat(file)).isDirectory())file=resolve(file,'index.html');
