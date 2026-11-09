@@ -7,9 +7,28 @@ import {canonical,key,mergeHeads,hasConflict,type Head} from '../src/sync/record
 import {makeAtom,makeLink} from '../src/core/model';
 import {generateIdentity,createHello,establish,sign,verify,parseInvitation,b64,peerId} from '../src/sync/crypto';
 import {restoreDatabase} from '../src/storage/restore';
+import {profileSetting,sharedSetting} from '../src/sync/profile';
+it('keeps plugin migration receipts in the global profile without transmitting device receipts',()=>{
+ for(const name of ['retired-builtins-v1','map-tools-defaults-v1','plugin-defaults-v2','lasso-default-v2']){expect(profileSetting(name)).toBe(true);expect(sharedSetting(name)).toBe(false);}
+ expect(profileSetting('disabled-builtins')).toBe(true);
+ expect(profileSetting('sync:trusted:device')).toBe(false);
+ expect(sharedSetting(undefined as any)).toBe(false);
+});
 function database(){const raw=new DatabaseSync(':memory:');const db:Database={exec(q){if(typeof q==='string')raw.exec(q);else raw.prepare(q.sql).run(...q.bind||[]);},selectValue(q,b=[]){const row=raw.prepare(q).get(...b);return row?Object.values(row)[0]:undefined;},selectObjects(q,b=[]){return raw.prepare(q).all(...b);}};migrate(db);return db;}
 const send=(from:Database,to:Database)=>applyRecords(to,structuredClone(exportRecords(from)),transact);
 const edit=(db:Database,id:string,content:string)=>{const before=snapshot(db).atoms.find(a=>a.id===id)!;transact(db,[{kind:'atom',atom:{...before,content,revision:before.revision+1},expectedRevision:before.revision}]);};
+it('exports the settled coordinates after automatic layout instead of the original insertion position',()=>{
+ const a=database(),b=database(),n=makeAtom({title:'Settled',x:5,y:9});transact(a,[{kind:'atom',atom:n}]);
+ transact(a,[{kind:'positions',positions:[{id:n.id,x:417,y:-263}],manual:false}]);send(a,b);
+ expect(snapshot(b).atoms[0]).toMatchObject({x:417,y:-263});send(b,a);expect(conflicts(a)).toHaveLength(0);
+});
+it('synchronizes plugin state causally and rejects device secrets as settings records',()=>{
+ const a=database(),b=database();transact(a,[{kind:'setting',key:'disabled-builtins',value:['builtin.lasso']}]);send(a,b);
+ expect(JSON.parse(b.selectValue('SELECT value FROM settings WHERE key=?',['disabled-builtins']) as string)).toEqual(['builtin.lasso']);
+ transact(b,[{kind:'setting',key:'disabled-builtins',value:[]}]);send(b,a);expect(conflicts(a)).toHaveLength(0);
+ const malicious=structuredClone(exportRecords(a).find(r=>r.kind==='setting')!);malicious.id='sync:trusted:attacker';
+ expect(()=>applyRecords(b,[malicious],transact)).toThrow();
+});
 it('exchanges both directions and preserves equal-revision independent offline edits',()=>{
  const a=database(),b=database(),note=makeAtom({title:'Diary',pinned:true});transact(a,[{kind:'atom',atom:note}]);send(a,b);send(b,a);
  edit(a,note.id,'Computer edit');edit(b,note.id,'Phone edit');send(a,b);send(b,a);

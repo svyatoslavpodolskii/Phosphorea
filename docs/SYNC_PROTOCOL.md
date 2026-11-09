@@ -1,4 +1,8 @@
-# Sync protocol 1
+# Sync protocol 2
+
+The signed cryptographic hello retains version 1; encrypted manifests require
+`protocol: 2` and transfer envelopes require `version: 2`. An incompatible peer
+is rejected before any diary or profile transfer, with an update-both-devices message.
 
 ## Pairing and authenticated sessions
 
@@ -14,8 +18,12 @@ Showing/scanning is symmetric in product terms; host/guest are connection roles.
 Trust is device-wide and pins both the remote public key and approved incoming/outgoing
 workspace scope IDs. Signed-key authentication is followed by an encrypted manifest.
 An expanded selection requires fresh consent before any records are exported.
-The current maps are explicitly merged on first pairing; additional scopes are kept
-as separate workspaces. Scope-to-local-workspace mappings are persisted per pair.
+Every new remote scope is a separate workspace, even when names match. Scope-to-local
+workspace mappings are persisted per pair. Old version-1 mappings that merged distinct
+scopes are not reused; no preexisting user records are deleted during this transition.
+Both receivers select the offered scopes before confirmation. Final shared permissions
+are the union of mutually approved directions, allowing edits of an imported workspace
+to return to its origin without granting access to unselected private workspaces.
 
 Each side creates an ephemeral ECDH P-256 key and a 256-bit nonce. Both first
 exchange SHA-256 commitments to their complete hello; neither reveals the hello
@@ -32,9 +40,8 @@ keys for each direction and a 36-bit short authentication string displayed as
 six symbols from a fixed 64-emoji alphabet. Each side sends an encrypted proof:
 an ECDSA-SHA256 signature of the full transcript. Identity pinning, signature and
 key confirmation precede any synchronization data. Unknown identities require
-local confirmation on each device with existing data. An entirely empty device
-automatically accepts after authenticated manifest exchange; the source still
-requires emoji verification. Known identities authenticate the stored key
+local confirmation on each device, including an empty device, so it can select
+incoming workspaces and consent to the shared plugin profile. Known identities authenticate the stored key
 automatically; no server-issued identity or room-admin privilege is accepted.
 
 Every encrypted frame carries a strictly increasing 64-bit sequence number.
@@ -50,7 +57,7 @@ availability is distinct from authentication and confidentiality.
 
 ## Durable multi-writer records
 
-An atom, link or note-type catalog is a multi-value register. Each head contains
+An atom, link, note-type catalog or allowlisted profile setting is a multi-value register. Each head contains
 a random version ID, causal vector, value or null tombstone, display timestamp
 and device label. Timestamps/revision numbers never decide concurrent winners.
 The merge is the union of causally maximal heads, with deterministic ordering;
@@ -83,17 +90,24 @@ Transfers are bounded to 64 MiB, chunked into 18 KB plaintext chunks with
 sequence/size/order checks and SHA-256 integrity of the assembled envelope.
 Each chunk is independently authenticated/encrypted. DataChannel buffering has
 backpressure and timeout limits. The receiver applies only a complete envelope.
-New local edits during exchange are not acknowledged as sent; sync again to carry
-changes made after that side's export. The UI keeps editing outside the session.
+One deterministic peer coordinates bidirectional rounds over the authenticated
+channel. Both directions use the same round ID, with separate applied/acknowledged
+state. New writes during a round queue a subsequent round. Local settled positions
+are reconciled into causal records at export, not replaced with stale insertion points.
+The session belongs to the application, not the modal. Approved peers reconnect on
+startup and retry rendezvous while the app is open. The UI keeps editing outside the session.
 
 ## Trust boundaries and limitations
 
-Only atoms, links and the validated note-type catalog can be imported. Remote
-settings cannot install plugins, change preferences, replace trust or obtain a
-filesystem handle. Private keys and local permissions do not travel with notes.
+The always-shared device profile carries allowlisted preferences, built-in enablement,
+validated community plugin packages/resources and plugin settings. Pairing explicitly
+consents to this code transfer. Packages retain the existing sandbox/permission API.
+Theme and appearance registers are applied only when the receiver opts in; functional
+preferences are separate from the theme. Browser permissions, vault bindings, backups,
+camera state, identity keys and trusted-device records are excluded from profile keys.
 Restoring a full backup clears copied trust and the local actor marker but retains
-register histories. Current workspace data is exchanged; the workspace catalog is
-not. External Obsidian attachment bytes remain external and are not transferred.
+register histories. Approved workspace catalogs and mappings are exchanged independently
+of the shared profile. External Obsidian attachment bytes remain external and are not transferred.
 
 This is application-level confidentiality/authentication in transit, not disk
 encryption or protection against a malicious application update, browser extension

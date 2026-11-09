@@ -11,7 +11,7 @@ async function invite(page:Page){await page.getByRole('button',{name:'Показ
 }
 test('QR, bilateral emoji verification, encrypted exchange, offline conflict, resolution and known-device reconnect',async({browser})=>{
  const a=await browser.newContext({viewport:{width:390,height:844}}),b=await browser.newContext({viewport:{width:390,height:844}}),pa=await a.newPage(),pb=await b.newPage(),errors:string[]=[];
- for(const page of [pa,pb]){page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>{localStorage.setItem('phosphorea:tour-v1','seen');(window as any).__wire=[];const send=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data:any){(window as any).__wire.push(typeof data==='string'?data:'binary');return send.call(this,data);};});}
+ for(const page of [pa,pb]){page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>{localStorage.setItem('phosphorea:tour-v1','seen');(window as any).__wire=[];const send=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data:any){(window as any).__wire.push(typeof data==='string'?data:'binary');const channels=(window as any).__channels||=[];if(!channels.includes(this))channels.push(this);return send.call(this,data);};});}
  await pa.goto('http://127.0.0.1:4312/');await pb.goto('http://127.0.0.1:4313/');
  const note=makeAtom({id:'shared-note',title:'Shared diary',content:'Initial private text',pinned:true}),other=makeAtom({id:'neighbor',title:'Neighbor',x:210,pinned:true});await importMap(pa,{atoms:[note,other],links:[makeLink(note.id,other.id)]});
  await openSync(pa);await pa.locator('.name-button').click();await pa.getByRole('textbox',{name:'Название устройства'}).fill('Computer');await pa.getByRole('heading',{name:'Ваши устройства'}).click();const png=await invite(pa);
@@ -19,11 +19,12 @@ test('QR, bilateral emoji verification, encrypted exchange, offline conflict, re
  await expect(pb.getByRole('textbox',{name:'Ссылка подключения'})).toHaveValue(/#pair=/);
  const nativeLink=await pb.getByRole('textbox',{name:'Ссылка подключения'}).inputValue();await pb.goto('http://127.0.0.1:4313/'+new URL(nativeLink).hash);await expect(pb.getByRole('dialog',{name:'Устройства и синхронизация'})).toBeVisible();await expect(pb.getByRole('button',{name:'Подключиться',exact:true})).toBeEnabled();expect(new URL(pb.url()).hash).toBe('');await pb.getByRole('button',{name:'Подключиться',exact:true}).click();
  const codeA=pa.getByLabel('Код проверки'),codeB=pb.getByLabel('Код проверки');await expect(codeA).toBeVisible();await expect(codeB).toBeVisible();expect(await codeA.innerText()).toBe(await codeB.innerText());await pa.screenshot({path:'artifacts/sync-emoji-mobile.png'});
- await pa.getByRole('button',{name:'Да, совпадают',exact:true}).click();
- for(const p of [pa,pb])await expect(p.getByRole('heading',{name:'Карты синхронизированы',exact:true})).toBeVisible();await closeSync(pa);await closeSync(pb);expect((await readMap(pb)).atoms.map(a=>a.id)).toContain(note.id);
+ await pa.getByRole('button',{name:'Да, совпадают',exact:true}).click();await pb.getByRole('button',{name:'Да, совпадают',exact:true}).click();
+ for(const p of [pa,pb])await expect(p.getByRole('heading',{name:'Карты синхронизированы',exact:true})).toBeVisible();await closeSync(pa);await closeSync(pb);await pb.getByRole('button',{name:'Выбрать хранилище',exact:true}).click();await pb.getByRole('button',{name:/Основное · 2/}).click();expect((await readMap(pb)).atoms.map(a=>a.id)).toContain(note.id);
+ await a.setOffline(true);await b.setOffline(true);for(const p of [pa,pb])await p.evaluate(()=>{for(const c of (window as any).__channels||[])c.close();});
  // Make equal-revision edits independently while the data channel is closed.
  for(const [p,text] of [[pa,'Computer offline edit'],[pb,'Phone offline edit']] as const){await focus(p,'Shared diary');await p.getByRole('button',{name:'Markdown',exact:true}).click();await p.getByRole('textbox',{name:'Текст',exact:true}).fill(text);await p.getByRole('button',{name:'Готово',exact:true}).click();}
- await openSync(pa);await openSync(pb);await pb.getByRole('button',{name:/^Computer/}).click();
+ await a.setOffline(false);await b.setOffline(false);await pa.reload();await pb.reload();await pa.getByRole('button',{name:'Устройства и синхронизация',exact:true}).click();await pb.getByRole('button',{name:'Устройства и синхронизация',exact:true}).click();
  for(const p of [pa,pb])await expect(p.getByRole('heading',{name:'Есть разные версии',exact:true})).toBeVisible();
  await pa.getByRole('button',{name:/Shared diary.*версии/}).click();await expect(pa.locator('.version-choice')).toHaveCount(2);await pa.screenshot({path:'artifacts/sync-conflict-mobile.png'});await pa.getByRole('button',{name:'Сохранить обе отдельными заметками',exact:true}).click();await pa.getByRole('button',{name:'Синхронизировать ещё раз',exact:true}).click();
  for(const p of [pa,pb])await expect(p.getByRole('heading',{name:'Карты синхронизированы',exact:true})).toBeVisible();await closeSync(pa);await closeSync(pb);
@@ -35,7 +36,7 @@ test('camera denial has a link fallback and a cancelled pair sends no diary',asy
  await pb.getByRole('button',{name:/Сканировать QR/}).click();await expect(pb.getByRole('textbox',{name:'Ссылка подключения'})).toBeVisible();await expect(pb.getByRole('alert')).toContainText('Не удалось открыть камеру');
  await pb.locator('input[type=file]').setInputFiles({name:'pair.png',mimeType:'image/png',buffer:png});await pb.getByRole('button',{name:'Подключиться',exact:true}).click();await expect(pb.getByLabel('Код проверки')).toBeVisible();await pa.getByRole('button',{name:'Не совпадают — отменить',exact:true}).click();await closeSync(pb);expect((await readMap(pb)).atoms).toHaveLength(0);await a.close();await b.close();
 });
-test('all workspaces transfer separately with one approval on the populated device',async({browser})=>{
+test('all workspaces transfer separately after consent on both devices',async({browser})=>{
  const a=await browser.newContext(),b=await browser.newContext(),pa=await a.newPage(),pb=await b.newPage();
  for(const p of [pa,pb])await p.addInitScript(()=>localStorage.setItem('phosphorea:tour-v1','seen'));
  await pa.goto('http://127.0.0.1:4312/');await pb.goto('http://127.0.0.1:4313/');
@@ -44,9 +45,9 @@ test('all workspaces transfer separately with one approval on the populated devi
  await expect(pa.getByRole('button',{name:'Выбрать хранилище',exact:true})).toContainText('Работа');
  await importMap(pa,{atoms:[makeAtom({id:'work-note',title:'Work only'})],links:[]});
  await openSync(pa);const png=await invite(pa);await openSync(pb);await pb.getByRole('button',{name:'Подключиться по ссылке',exact:true}).click();await pb.locator('input[type=file]').setInputFiles({name:'pair.png',mimeType:'image/png',buffer:png});await pb.getByRole('button',{name:'Подключиться',exact:true}).click();
- await expect(pa.getByLabel('Код проверки')).toBeVisible();await expect(pb.getByLabel('Код проверки')).toBeVisible();await expect(pb.getByRole('button',{name:'Да, совпадают',exact:true})).toHaveCount(0);await pa.getByRole('button',{name:'Да, совпадают',exact:true}).click();
+ await expect(pa.getByLabel('Код проверки')).toBeVisible();await expect(pb.getByLabel('Код проверки')).toBeVisible();await pa.getByRole('button',{name:'Да, совпадают',exact:true}).click();await pb.getByRole('button',{name:'Да, совпадают',exact:true}).click();
  for(const p of [pa,pb])await expect(p.getByRole('heading',{name:'Карты синхронизированы',exact:true})).toBeVisible();await closeSync(pb);
- expect((await readMap(pb)).atoms.map(a=>a.id)).toEqual(['work-note']);
+ await pb.getByRole('button',{name:'Выбрать хранилище',exact:true}).click();await pb.getByRole('button',{name:/Работа/}).click();expect((await readMap(pb)).atoms.map(a=>a.id)).toEqual(['work-note']);
  await pb.getByRole('button',{name:'Выбрать хранилище',exact:true}).click();await pb.getByRole('button',{name:/Основное · 2/}).click();await expect(pb.getByRole('button',{name:'Выбрать хранилище',exact:true})).toContainText('Основное · 2');expect((await readMap(pb)).atoms.map(a=>a.id)).toEqual(['personal-note']);
  await a.close();await b.close();
 });

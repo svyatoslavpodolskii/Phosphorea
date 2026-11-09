@@ -1,3 +1,4 @@
+import {sharedSetting,functionalPreferences,APPEARANCE} from './profile';
 import type {Database} from '../storage/schema';
 import {makeAtom,type Atom,type Link,type Mutation} from '../core/model';
 import {NOTE_TYPES_KEY} from '../core/note-types';
@@ -17,7 +18,7 @@ function actor(db:Database){let value=actors.get(db);if(!value){value=crypto.ran
 function get(db:Database,k:string){const value=db.selectValue('SELECT value FROM settings WHERE key=?',[k]);return value===undefined?undefined:JSON.parse(value);}
 function put(db:Database,r:SyncRecord){db.exec({sql:'INSERT INTO settings VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',bind:[key(r),JSON.stringify(r)]});}
 function atom(db:Database,id:string):Atom|null {const r=db.selectObjects('SELECT * FROM atoms WHERE id=?',[id])[0];return r?{...r,paused:Boolean(r.paused),pinned:Boolean(r.pinned),properties:JSON.parse(r.properties),appearance:JSON.parse(r.appearance),spatial:JSON.parse(r.spatial),aliases:db.selectObjects('SELECT alias FROM aliases WHERE atom_id=?',[id]).map(r=>r.alias)} as Atom:null;}
-function value(db:Database,kind:Kind,id:string){return kind==='atom'?atom(db,id):kind==='link'?db.selectObjects('SELECT * FROM links WHERE id=?',[id])[0]??null:get(db,id)??null;}
+function value(db:Database,kind:Kind,id:string){return kind==='atom'?atom(db,id):kind==='link'?db.selectObjects('SELECT * FROM links WHERE id=?',[id])[0]??null:(kind==='setting'&&id==='preferences'?functionalPreferences(get(db,id)):get(db,id))??null;}
 function newHead(db:Database,v:Head['value'],base:Head[],branch=false):Head{const clock=unionClock(base),a=branch?crypto.randomUUID():actor(db),n=Math.max(counters.get(db)||0,clock[a]||0)+1;counters.set(db,n);clock[a]=n;const state=durable.get(db);if(state){state.counter=n;db.exec({sql:'INSERT INTO settings VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',bind:['sync:local-actor',JSON.stringify(state)]});}return{id:crypto.randomUUID(),clock,value:v,at:new Date().toISOString(),device:get(db,'sync:device-name')||'Устройство'};}
 /** Called inside the same SQLite transaction as every ordinary write. */
 export function trackLocal(db:Database,changes:Map<string,{kind:Kind;id:string;base?:Head[]}>){
@@ -28,7 +29,7 @@ export function trackLocal(db:Database,changes:Map<string,{kind:Kind;id:string;b
   const next=newHead(db,v,target.base??r.heads.slice(0,1),hasConflict(r));r.heads=mergeHeads([...r.heads,next]);put(db,r);
  }
 }
-function basis(v:Head['value']){if(v&&!Array.isArray(v)&&'title' in v){const {x,y,spatial,...rest}=v as Atom;return semantic(rest as Atom);}return semantic(v);}
+function basis(v:Head['value']){if(v&&typeof v==='object'&&!Array.isArray(v)&&'title' in v){const {x,y,spatial,...rest}=v as Atom;return semantic(rest as Atom);}return semantic(v);}
 export function localChanges(db:Database,ops:Mutation[]){const result=new Map<string,{kind:Kind;id:string;base?:Head[]}>();const add=(kind:Kind,id:string)=>{const record=get(db,key({kind,id})) as SyncRecord|undefined,current=basis(value(db,kind,id));result.set(key({kind,id}),{kind,id,base:record?.heads.filter(h=>basis(h.value)===current)});};
  const removeLink=(id:string)=>{add('link',id);const edge=value(db,'link',id) as Link|null;if(!edge)return;
   // Concurrently created identical edges can have different UUIDs. Deleting
@@ -38,7 +39,7 @@ export function localChanges(db:Database,ops:Mutation[]){const result=new Map<st
    if(base.length)result.set(key(r),{kind:'link',id:r.id,base});
   }
  };
- for(const op of ops){if(op.kind==='atom')add('atom',op.atom.id);if(op.kind==='link')add('link',op.link.id);if(op.kind==='unlink')removeLink(op.id);if(op.kind==='setting'&&op.key===NOTE_TYPES_KEY)add('catalog',op.key);
+ for(const op of ops){if(op.kind==='atom')add('atom',op.atom.id);if(op.kind==='link')add('link',op.link.id);if(op.kind==='unlink')removeLink(op.id);if(op.kind==='setting'&&op.key===NOTE_TYPES_KEY)add('catalog',op.key);if(op.kind==='setting'&&sharedSetting(op.key))add('setting',op.key);
   if(op.kind==='positions'&&op.manual)for(const p of op.positions)add('atom',p.id);
   if(op.kind==='delete'){add('atom',op.id);for(const l of db.selectObjects('SELECT id FROM links WHERE "from"=? OR "to"=?',[op.id,op.id]))removeLink(l.id);}
  }return result;
@@ -46,7 +47,8 @@ export function localChanges(db:Database,ops:Mutation[]){const result=new Map<st
 export function exportRecords(db:Database):SyncRecord[]{
  db.exec('BEGIN IMMEDIATE');try{
   const missing=new Map<string,{kind:Kind;id:string}>();
-  for(const kind of ['atom','link'] as const)for(const r of db.selectObjects(`SELECT id FROM ${kind==='atom'?'atoms':'links'}`))if(!get(db,key({kind,id:r.id})))missing.set(r.id,{kind,id:r.id});
+  for(const row of db.selectObjects('SELECT key FROM settings'))if(sharedSetting(row.key)&&!get(db,key({kind:'setting',id:row.key})))missing.set('setting:'+row.key,{kind:'setting',id:row.key});
+  for(const kind of ['atom','link'] as const)for(const r of db.selectObjects(`SELECT id FROM ${kind==='atom'?'atoms':'links'}`))if(!get(db,key({kind,id:r.id})))missing.set(r.id,{kind,id:r.id});else if(kind==='atom'){const record=get(db,key({kind,id:r.id})) as SyncRecord,current=atom(db,r.id);if(current&&!record.heads.some(h=>semantic(h.value)===semantic(current)))missing.set(r.id,{kind,id:r.id,base:record.heads.filter(h=>basis(h.value)===basis(current))} as any);}
   if(get(db,NOTE_TYPES_KEY)!==undefined&&!get(db,key({kind:'catalog',id:NOTE_TYPES_KEY})))missing.set(NOTE_TYPES_KEY,{kind:'catalog',id:NOTE_TYPES_KEY});
   trackLocal(db,missing);db.exec('COMMIT');
  }catch(e){db.exec('ROLLBACK');throw e;}
@@ -58,6 +60,7 @@ function materialize(db:Database,records:SyncRecord[],write:Transact){
  const ops:Mutation[]=[],linkRecords=db.selectObjects('SELECT value FROM settings WHERE substr(key,1,?)=?',[(RECORD_PREFIX+'link:').length,RECORD_PREFIX+'link:']).map(row=>JSON.parse(row.value) as SyncRecord);
  for(const r of records){const v=r.heads[0].value;
   if(r.kind==='atom'){const before=atom(db,r.id);if(v===null){if(before)ops.push({kind:'delete',id:r.id});}else if(!before||semantic(before)!==semantic(v)){const next={...v as Atom,revision:before?before.revision+1:1};ops.push({kind:'atom',atom:next,expectedRevision:before?.revision});}}
+  if(r.kind==='setting'&&v!==null){let next=v;if(r.id==='preferences')next={...get(db,'preferences'),...v as object};if(r.id===APPEARANCE)ops.push({kind:'setting',key:'preferences',value:{...get(db,'preferences'),...v as object}});ops.push({kind:'setting',key:r.id,value:next});}
   if(r.kind==='catalog'&&v!==null)ops.push({kind:'setting',key:NOTE_TYPES_KEY,value:v});
  }
  // Rebuild touched edges only after both endpoint atoms have been materialized.

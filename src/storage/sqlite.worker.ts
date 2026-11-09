@@ -1,3 +1,4 @@
+import {sharedSetting,profileSetting,visualSetting,APPEARANCE} from '../sync/profile';
 import {restoreDatabase} from './restore';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import {migrate} from './schema';
@@ -23,7 +24,7 @@ async function syncApplyWorkspaces(transfers:WorkspaceTransfer[],approved:SyncWo
  const local=await syncWorkspaces();let count=0;const next={...mapping};
  for(const w of transfers){let id:string|undefined=next[w.scope];if(id&&!local.some(p=>p.id===id))throw Error('Хранилище пары удалено. Настройте подключение заново.');id ||= local.find(p=>p.scope===w.scope)?.id;
   if(!id){let name=w.name,index=1;while(catalog(rootDb).items.some(p=>p.name.toLocaleLowerCase()===name.toLocaleLowerCase()))name=w.name.slice(0,65)+' · '+(++index);const list=changeWorkspace(rootDb,'create',name);id=list.items.at(-1)!.id;setting(await workspaceDb(id),'sync:scope-id',w.scope);}
-  const result=applyRecords(await workspaceDb(id),w.records,transact);count+=result.conflicts;next[w.scope]=id;
+  const target=await workspaceDb(id);const result=applyRecords(target,w.records.filter(r=>r.kind!=='setting'&&r.kind!=='catalog'),transact);setting(target,'structural-layout-v2',true);count+=result.conflicts;next[w.scope]=id;
  }
  return{conflicts:count,mapping:next};
 }
@@ -33,7 +34,7 @@ async function open(requested?:string) {
  sqlite=await sqlite3InitModule();
  const pool=await sqlite.installOpfsSAHPoolVfs({name:'phosphored-opfs',directory:'.phosphored',initialCapacity:8});
  rootPool=pool;const candidate=new pool.OpfsSAHPoolDb('/phosphored.sqlite3');
- try {migrate(candidate);rootDb=candidate;await cleanupDeleted();const list=catalog(rootDb);const current=requested||list.current;if(!list.items.some(w=>w.id===current))throw Error('Хранилище не найдено.');if(current==='default'){db=rootDb;}else{if(!/^[a-f0-9-]{36}$/.test(current))throw Error('Некорректный идентификатор хранилища.');const space=await sqlite.installOpfsSAHPoolVfs({name:'phosphored-opfs-'+current,directory:'.phosphored-'+current,initialCapacity:4});const target=new space.OpfsSAHPoolDb('/phosphored.sqlite3');try{migrate(target);db=target;workspaceDbs.set(current,target);}catch(e){target.close();throw e;}}const device=await identity().catch(()=>undefined);if(device)initializeActor(db,device.id);if(requested)changeWorkspace(rootDb,'select',current);} catch(e){candidate.close();throw e;}
+ try {migrate(candidate);rootDb=candidate;await cleanupDeleted();const list=catalog(rootDb);const current=requested||list.current;if(!list.items.some(w=>w.id===current))throw Error('Хранилище не найдено.');if(current==='default'){db=rootDb;}else{if(!/^[a-f0-9-]{36}$/.test(current))throw Error('Некорректный идентификатор хранилища.');const space=await sqlite.installOpfsSAHPoolVfs({name:'phosphored-opfs-'+current,directory:'.phosphored-'+current,initialCapacity:4});const target=new space.OpfsSAHPoolDb('/phosphored.sqlite3');try{migrate(target);db=target;workspaceDbs.set(current,target);}catch(e){target.close();throw e;}}const device=await identity().catch(()=>undefined);if(device){initializeActor(rootDb,device.id);if(db!==rootDb)initializeActor(db,device.id);}if(!setting(rootDb,'sync:profile-ready')){const ops=rootDb===db?[]:db.selectObjects('SELECT key,value FROM settings').filter((r:any)=>profileSetting(r.key)).map((r:any)=>({kind:'setting',key:r.key,value:JSON.parse(r.value)}));if(ops.length)transact(rootDb,ops);const pref=setting(rootDb,'preferences');if(pref)transact(rootDb,[{kind:'setting',key:APPEARANCE,value:{theme:pref.theme,customThemes:pref.customThemes||[]}}]);setting(rootDb,'sync:profile-ready',true);}if(requested)changeWorkspace(rootDb,'select',current);} catch(e){candidate.close();throw e;}
 }
 async function cleanupDeleted(){
  const pending=JSON.parse(rootDb.selectValue("SELECT value FROM settings WHERE key='workspace-deletions'")||'[]') as string[];const remaining:string[]=[];
@@ -47,21 +48,23 @@ self.onmessage=({data:{id,method,args}})=>{queue=queue.then(async()=>{
  if(method==='open')await open(args[0]);
  else {if(restored)throw Error('Reload required after restore');if(!db)throw Error('База не открыта.');
  if(method==='snapshot')result=snapshot(db);
+ else if(method==='syncExportProfile')result=exportRecords(rootDb).filter(r=>r.kind==='setting');
+ else if(method==='syncApplyProfile'){if(!Array.isArray(args[0])||args[0].some((r:any)=>r.kind!=='setting'))throw Error('Invalid profile');for(const r of args[0])validateRecord(r);result=applyRecords(rootDb,args[0].filter((r:any)=>args[1]||!visualSetting(r.id)),transact);}
  else if(method==='syncWorkspaces')result=await syncWorkspaces();
- else if(method==='syncExportWorkspaces'){const all=await syncWorkspaces();if(!Array.isArray(args[0])||args[0].some((id:string)=>!all.some(w=>w.id===id)))throw Error('Хранилище не найдено.');result=[];for(const w of all.filter(w=>args[0].includes(w.id)))result.push({...w,records:exportRecords(await workspaceDb(w.id))});}
+ else if(method==='syncExportWorkspaces'){const all=await syncWorkspaces();if(!Array.isArray(args[0])||args[0].some((id:string)=>!all.some(w=>w.id===id)))throw Error('Хранилище не найдено.');result=[];for(const w of all.filter(w=>args[0].includes(w.id)))result.push({...w,records:exportRecords(await workspaceDb(w.id)).filter(r=>r.kind!=='setting'&&r.kind!=='catalog')});}
  else if(method==='syncApplyWorkspaces')result=await syncApplyWorkspaces(args[0],args[1],args[2]);
- else if(method==='syncGetGlobal'||method==='syncSetGlobal'){if(typeof args[0]!=='string'||!/^sync:(trusted:|device-name$)/.test(args[0]))throw Error('Неверный ключ устройства.');result=method==='syncGetGlobal'?setting(rootDb,args[0]):setting(rootDb,args[0],args[1]);}
+ else if(method==='syncGetGlobal'||method==='syncSetGlobal'){if(typeof args[0]!=='string'||!/^sync:(trusted:|device-name$|visual$)/.test(args[0]))throw Error('Неверный ключ устройства.');result=method==='syncGetGlobal'?setting(rootDb,args[0]):setting(rootDb,args[0],args[1]);}
  else if(method==='syncExport')result=exportRecords(db);
  else if(method==='syncApply')result=applyRecords(db,args[0],transact);
- else if(method==='syncConflicts')result=conflicts(db);
- else if(method==='syncResolve')result=resolveConflict(db,args[0],args[1],args[2],transact);
+ else if(method==='syncConflicts')result=[...conflicts(db).filter(r=>r.kind==='atom'||r.kind==='link'),...conflicts(rootDb).filter(r=>r.kind==='setting')];
+ else if(method==='syncResolve')result=resolveConflict(typeof args[0]==='string'&&args[0].startsWith('sync:record:setting:')?rootDb:db,args[0],args[1],args[2],transact);
  else if(method==='workspaces')result=catalog(rootDb);
  else if(method==='createWorkspace')result=changeWorkspace(rootDb,'create',args[0]);
  else if(method==='renameWorkspace')result=changeWorkspace(rootDb,'rename',args[1],args[0]);
  else if(method==='deleteWorkspace'){const cached=workspaceDbs.get(args[0]);if(cached&&cached!==db){cached.close();workspaceDbs.delete(args[0]);}const current=catalog(rootDb).current;result=removeWorkspace(rootDb,args[0]);if(args[0]===current){if(db!==rootDb)db.close();restored=true;}if(args[0]!=='default')await cleanupDeleted();}
  else if(method==='selectWorkspace')result=changeWorkspace(rootDb,'select',args[0]);
- else if(method==='transaction')await transactWithRetry(db,args[0]);
- else if(method==='getSetting'){const raw=db.selectValue('SELECT value FROM settings WHERE key=?',[args[0]]);result=raw===undefined?undefined:JSON.parse(raw);}
+ else if(method==='transaction'){const ops=args[0];await transactWithRetry(db,ops);const config=ops.filter((op:any)=>op.kind==='setting'&&profileSetting(op.key));for(const op of [...config])if(op.key==='preferences')config.push({kind:'setting',key:APPEARANCE,value:{theme:op.value.theme,customThemes:op.value.customThemes}});if(config.length)transact(rootDb,config);}
+ else if(method==='getSetting'){const raw=(profileSetting(args[0])?rootDb:db).selectValue('SELECT value FROM settings WHERE key=?',[args[0]]);result=raw===undefined?undefined:JSON.parse(raw);}
  else if(method==='restoreDatabase'){let staged:any;try{rootPool.importDb('/restore.sqlite3',args[0]);staged=new rootPool.OpfsSAHPoolDb('/restore.sqlite3');restoreDatabase(db,staged);restored=true;}finally{try{staged?.close();rootPool.unlink('/restore.sqlite3');}catch(cleanupError){console.warn('Restore staging cleanup',cleanupError);}}}
  else if(method==='exportDatabase')result=sqlite.capi.sqlite3_js_db_export(db);
  else throw Error('Неизвестная операция хранилища.');}

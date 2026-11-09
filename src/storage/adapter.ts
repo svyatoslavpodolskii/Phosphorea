@@ -1,10 +1,15 @@
+import {sharedSetting} from '../sync/profile';
 import {trackSave} from './status';
 import type {StorageAdapter,Mutation,Snapshot} from '../core/model';
 import type {WorkspaceCatalog} from './workspaces';
 export class SQLiteAdapter implements StorageAdapter {
  private worker:Worker;private stopped=false;
  private pending=new Map<number,{resolve:(v:any)=>void;reject:(e:Error)=>void}>();
- private seq=0;
+ private seq=0;private localListeners=new Set<()=>void>();
+ onLocalChange(fn:()=>void){this.localListeners.add(fn);return()=>{this.localListeners.delete(fn);};}
+ private changed(){for(const fn of this.localListeners)fn();}
+ syncExportProfile(){return this.call<import('../sync/records').SyncRecord[]>('syncExportProfile');}
+ syncApplyProfile(records:unknown,visual:boolean){return this.call('syncApplyProfile',records,visual);}
  private release?:()=>void;
  constructor(){this.worker=new Worker(new URL('./sqlite.worker.ts',import.meta.url),{type:'module'});this.worker.onmessage=({data})=>{const p=this.pending.get(data.id);if(!p)return;this.pending.delete(data.id);data.error?p.reject(Error(data.error)):p.resolve(data.result);};this.worker.onerror=()=>{for(const p of this.pending.values())p.reject(Error('Worker хранилища остановлен. Перезапустите приложение; база не удалена.'));this.pending.clear();this.stopped=true;};}
  private call<T>(method:string,...args:any[]):Promise<T>{return new Promise((resolve,reject)=>{if(this.stopped){reject(Error('Storage worker is closed'));return;}const id=++this.seq;this.pending.set(id,{resolve,reject});try{this.worker.postMessage({id,method,args:args.map(arg=>arg instanceof Uint8Array?arg:JSON.parse(JSON.stringify(arg??null)))});}catch(e){this.pending.delete(id);reject(e);}});}
@@ -23,8 +28,8 @@ export class SQLiteAdapter implements StorageAdapter {
  syncSetGlobal(key:string,value:unknown){return this.call<void>('syncSetGlobal',key,value);}
  syncApply(records:unknown){return trackSave(()=>this.call<{received:number;conflicts:number}>('syncApply',records));}
  syncConflicts(){return this.call<import('../sync/records').SyncRecord[]>('syncConflicts');}
- syncResolve(key:string,expected:string,choice:string){return trackSave(()=>this.call<void>('syncResolve',key,expected,choice));}
- transaction(ops:Mutation[]){return trackSave(()=>this.call<void>('transaction',ops));}
+ async syncResolve(key:string,expected:string,choice:string){await trackSave(()=>this.call<void>('syncResolve',key,expected,choice));this.changed();}
+ async transaction(ops:Mutation[]){const configs=ops.filter((op):op is Extract<Mutation,{kind:'setting'}>=>op.kind==='setting'&&sharedSetting(op.key));const changed=ops.some(op=>op.kind!=='setting')||(await Promise.all(configs.map(async op=>JSON.stringify(await this.getSetting(op.key))!==JSON.stringify(op.value)))).some(Boolean);await trackSave(()=>this.call<void>('transaction',ops));if(changed)this.changed();}
  getSetting<T>(key:string){return this.call<T|undefined>('getSetting',key);}
  restoreDatabase(bytes:Uint8Array){return trackSave(()=>this.call<void>('restoreDatabase',bytes));}
  exportDatabase(){return this.call<Uint8Array>('exportDatabase');}
