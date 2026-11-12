@@ -5,8 +5,11 @@
 - https://github.com/svyatoslavpodolskii/Phosphoreya
 - https://svyatoslavpodolskii.github.io/Phosphoreya/
 
-Прежний репозиторий `Phosphora` удалён по просьбе владельца; его история входит
-в основной проект. `Phosphorea` остаётся совместимым адресом установленных PWA.
+Прежний репозиторий `Phosphora` больше не используется; его история входит
+в основной проект. Его удаление через текущую авторизацию GitHub недоступно
+(403, недостаточно прав). Владелец может удалить его в Settings → General →
+Danger Zone: https://github.com/svyatoslavpodolskii/Phosphora/settings.
+`Phosphorea` остаётся совместимым адресом установленных PWA.
 Его workflow собирает исходники из основного `Phosphoreya`, проверяя их раз в час.
 Для немедленного обновления старого адреса запустите его workflow вручную.
 Публикуйте изменения в основной репозиторий:
