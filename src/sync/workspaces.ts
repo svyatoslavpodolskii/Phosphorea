@@ -1,6 +1,6 @@
 import type {SyncRecord} from './records';
 export interface SyncWorkspace {id:string;name:string;scope:string;hasData:boolean}
-export interface WorkspaceTransfer {id:string;name:string;scope:string;records:SyncRecord[]}
+export interface WorkspaceTransfer {id:string;name:string;scope:string;records:SyncRecord[];attachments?:import('../core/attachments').AttachmentPayload[]}
 /** Only authenticated, explicitly approved manifests may reach storage. */
 export function validateWorkspaces(value:unknown):asserts value is SyncWorkspace[]{
  if(!Array.isArray(value)||value.length>100)throw Error('Некорректный список хранилищ.');

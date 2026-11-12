@@ -3,8 +3,9 @@
  import {transientUndo} from './transient-undo';
  import {makeLink,type Link,type Snapshot} from '../core/model';
  import type {Camera,GraphNode} from '../graph/model';
+ import type {EdgeCurves} from '../graph/edge-curve';
  import {linkCurve} from '../graph/relationships';
- let {data,nodes,camera,width,height,selected,paused,activeLink=$bindable(''),interacting=$bindable(false),onchange}:{data:Snapshot;nodes:GraphNode[];camera:Camera;width:number;height:number;selected:string;paused:boolean;activeLink:string;interacting:boolean;onchange:(before:Link|null,after:Link|null)=>Promise<void>}=$props();
+ let {curves,data,nodes,camera,width,height,selected,paused,activeLink=$bindable(''),interacting=$bindable(false),onchange}:{curves?:EdgeCurves;data:Snapshot;nodes:GraphNode[];camera:Camera;width:number;height:number;selected:string;paused:boolean;activeLink:string;interacting:boolean;onchange:(before:Link|null,after:Link|null)=>Promise<void>}=$props();
  let drag=$state<{pointer:number;fixed:string;side:'from'|'to';original:Link|null;x:number;y:number;target:string}|null>(null),busy=$state(false),error=$state('');
  let captured:HTMLElement|null=null;
  let undo=$state<{before:Link|null;after:Link|null}|null>(null);
@@ -14,7 +15,7 @@
  const link=$derived(data.links.find(l=>l.id===activeLink));
  const source=$derived(positions.get(selected));
  const screen=(p:{x:number;y:number})=>({x:width/2+camera.x+p.x*camera.zoom,y:height/2+camera.y+p.y*camera.zoom});
- const curve=$derived.by(()=>{const a=link&&positions.get(link.from),b=link&&positions.get(link.to);return a&&b?linkCurve(a,b):null;});
+ const curve=$derived.by(()=>{const a=link&&positions.get(link.from),b=link&&positions.get(link.to);return a&&b?(curves?.get(link!,a,b)??linkCurve(a,b)):null;});
  const path=$derived(curve?`M ${screen({x:curve.ax,y:curve.ay}).x} ${screen({x:curve.ax,y:curve.ay}).y} Q ${screen({x:curve.cx,y:curve.cy}).x} ${screen({x:curve.cx,y:curve.cy}).y} ${screen({x:curve.bx,y:curve.by}).x} ${screen({x:curve.bx,y:curve.by}).y}`:'');
  const fixed=$derived(drag&&positions.get(drag.fixed));
  const rubber=$derived.by(()=>{if(!drag||!fixed)return '';const a=screen(fixed),target=positions.get(drag.target),b=target?screen(target):drag;return `M ${a.x} ${a.y} Q ${(a.x+b.x)/2-8} ${(a.y+b.y)/2+8} ${b.x} ${b.y}`;});

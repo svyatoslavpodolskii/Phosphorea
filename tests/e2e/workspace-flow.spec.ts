@@ -50,6 +50,12 @@ test('a touch pinch flick continues beyond the released scale and a new touch gr
  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await expect.poll(async()=>Number(await map.getAttribute('data-zoom'))).toBeGreaterThan(initial*1.3*1.05);
  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:80,y:300,id:3}]});await page.waitForTimeout(40);const stopped=Number(await map.getAttribute('data-zoom'));await page.waitForTimeout(100);expect(Number(await map.getAttribute('data-zoom'))).toBeCloseTo(stopped,4);await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
 });
+test('a remaining pinch finger cannot become an accidental pan',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Stable pinch',pinned:true})],links:[]});const map=page.locator('canvas.map'),cdp=await page.context().newCDPSession(page);
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:140,y:350,id:1},{x:250,y:350,id:2}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:120,y:350,id:1},{x:270,y:350,id:2}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[{x:120,y:350,id:1}]});await page.waitForTimeout(400);const anchor=()=>map.evaluate(el=>({x:(195-el.clientWidth/2-Number(el.dataset.cameraX))/Number(el.dataset.zoom),y:(350-el.clientHeight/2-Number(el.dataset.cameraY))/Number(el.dataset.zoom)}));const before=await anchor();
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:60,y:450,id:1}]});await page.waitForTimeout(120);const after=await anchor();expect(after.x).toBeCloseTo(before.x,1);expect(after.y).toBeCloseTo(before.y,1);await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+});
+
 test('editor remembers expansion, contains its scroll and edits Markdown tables',async({page})=>{
  await page.setViewportSize({width:1440,height:900});await page.goto('/');
  await importMap(page,{atoms:[makeAtom({title:'Table note',content:'| Name | Value |\n| --- | --- |\n| Original | 42 |\n\n'+('Paragraph\n\n'.repeat(60))})],links:[]});

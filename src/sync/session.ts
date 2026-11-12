@@ -20,7 +20,7 @@ export class SyncSession {
  private get storage(){return this.core.storage as SQLiteAdapter;}
  private publish(patch:Partial<SyncStatus>){if(!this.alive)return;this.status={...this.status,...patch};for(const fn of this.subscribers)fn({...this.status});}
  private trustKey(){return 'sync:trusted:'+this.me!.id;}
- private scope='';private manifestReceived=false;
+ private scope='';private remoteAttachments=false;private manifestReceived=false;
  private remoteCommit='';private localCommitted=false;private helloRevealed=false;
  private revealHello(){if(this.localCommitted&&this.remoteCommit&&!this.helloRevealed&&this.connection?.open&&this.local){this.helloRevealed=true;this.connection.send(JSON.stringify({t:'hello',hello:this.local.hello}));}}
  private async initialize(){
@@ -43,7 +43,7 @@ export class SyncSession {
  async connect(invite:Invitation){if(!this.peer?.open)throw Error('Дождитесь готовности подключения.');if(invite.key===this.me?.id)throw Error('Это QR этого же устройства. Откройте его на другом.');this.expected=invite.key;this.secret=invite.secret;const id=await hash(bytes(invite.secret));this.attach(this.peer.connect(invite.peer,{reliable:true,serialization:'raw'}),'guest',id);}
  reconnect(device:TrustedDevice){this.publish({selected:this.status.workspaces.filter(w=>device.outgoing?.includes(w.scope)).map(w=>w.id)});if(!this.peer?.open)throw Error('Дождитесь готовности подключения.');this.expected=device.id;this.secret='';this.attach(this.peer.connect(peerId(device.id),{reliable:true,serialization:'raw'}),'guest');}
  private attach(c:DataConnection,role:'host'|'guest',inviteId=''){
-  if(this.connection){c.close();return;}this.connection=c;this.role=role;this.authorized=false;this.manifestReceived=false;this.localConfirmed=false;this.remoteConfirmed=false;this.proved=false;this.channel=undefined;this.remote=undefined;this.remoteCommit='';this.localCommitted=false;this.helloRevealed=false;this.syncId='';this.applied=false;this.acknowledged=false;
+  if(this.connection){c.close();return;}this.connection=c;this.role=role;this.authorized=false;this.manifestReceived=false;this.remoteAttachments=false;this.localConfirmed=false;this.remoteConfirmed=false;this.proved=false;this.channel=undefined;this.remote=undefined;this.remoteCommit='';this.localCommitted=false;this.helloRevealed=false;this.syncId='';this.applied=false;this.acknowledged=false;
   this.publish({phase:'connecting',message:'Проверяем ключи устройства…',emojis:undefined,progress:undefined});
   this.handshakeTimer=setTimeout(()=>this.fail('Не удалось подключиться. Покажите новый QR и попробуйте снова.'),15_000);
   const helloReady=createHello(this.me!,this.name,inviteId,this.scope).then(local=>{if(this.connection===c)this.local=local;return local;});
@@ -79,9 +79,9 @@ export class SyncSession {
   if(msg.t==='proof'){
    if(this.proved||typeof msg.signature!=='string'||msg.signature.length>200)throw Error('Неверное подтверждение ключа.');await verify(this.remote!.identity,this.channel.transcript,msg.signature);current();this.proved=true;
    clearTimeout(this.handshakeTimer);this.handshakeTimer=setTimeout(()=>this.fail('Подтверждение не завершено. Покажите новый QR и попробуйте снова.'),120_000);
-   await this.send({t:'manifest',workspaces:this.status.workspaces,selected:this.status.selected,protocol:2});return;
+   await this.send({t:'manifest',workspaces:this.status.workspaces,selected:this.status.selected,protocol:2,attachments:1});return;
   }
-  if(msg.t==='manifest'){
+  if(msg.t==='manifest'){this.remoteAttachments=msg.attachments===1;
    if(msg.protocol!==2)throw Error('Обновите Phosphoreya на обоих устройствах перед подключением.');if(!this.proved||this.manifestReceived)throw Error('Проверка списка хранилищ не пройдена.');validateWorkspaces(msg.workspaces);
    if(!Array.isArray(msg.selected)||new Set(msg.selected).size!==msg.selected.length||msg.selected.some((id:unknown)=>typeof id!=='string'||!msg.workspaces.some((w:SyncWorkspace)=>w.id===id)))throw Error('Проверка списка хранилищ не пройдена.');
    this.manifestReceived=true;this.publish({remoteWorkspaces:msg.workspaces,remoteSelected:msg.selected,remoteOffered:msg.selected});
@@ -136,7 +136,7 @@ export class SyncSession {
  async sync(){if(!this.authorized)return;if(this.activeRound){this.pendingRound=true;return;}if(!this.leader()){await this.send({t:'request'});return;}const id=crypto.randomUUID();await this.send({t:'round',id});await this.beginRound(id);}
  private async beginRound(id:string){this.activeRound=true;this.pendingRound=false;this.applied=false;this.acknowledged=false;this.syncId=id;await this.transmitRound();}
  private async transmitRound(){if(!this.authorized||this.sending)return;this.sending=true;this.publish({phase:'syncing',message:'Сверяем обе карты…',progress:0});this.armTransfer();
-  try{const device=this.trusted.find(d=>d.id===this.remoteId)!,spaces=await this.storage.syncWorkspaces(),ids=spaces.filter(w=>device.outgoing?.includes(w.scope)).map(w=>w.id),workspaces=await this.storage.syncExportWorkspaces(ids),profile=await this.storage.syncExportProfile(),raw=bytes(JSON.stringify({format:'phosphorea-sync',version:2,workspaces,profile}));if(raw.length>LIMIT)throw Error('Карта больше 64 МБ. Используйте полную резервную копию для переноса.');const id=this.syncId;await this.send({t:'start',id,size:raw.length,hash:await hash(raw)});for(let i=0;i<raw.length;i+=CHUNK)await this.send({t:'chunk',id,index:i/CHUNK,data:b64(raw.subarray(i,i+CHUNK))});await this.send({t:'end',id});}
+  try{const device=this.trusted.find(d=>d.id===this.remoteId)!,spaces=await this.storage.syncWorkspaces(),ids=spaces.filter(w=>device.outgoing?.includes(w.scope)).map(w=>w.id),workspaces=await this.storage.syncExportWorkspaces(ids),profile=await this.storage.syncExportProfile();if(!this.remoteAttachments&&workspaces.some(w=>w.attachments?.length))throw Error('Обновите оба приложения для переноса вложений.');const raw=bytes(JSON.stringify({format:'phosphorea-sync',version:2,workspaces,profile}));if(raw.length>LIMIT)throw Error('Карта больше 64 МБ. Используйте полную резервную копию для переноса.');const id=this.syncId;await this.send({t:'start',id,size:raw.length,hash:await hash(raw)});for(let i=0;i<raw.length;i+=CHUNK)await this.send({t:'chunk',id,index:i/CHUNK,data:b64(raw.subarray(i,i+CHUNK))});await this.send({t:'end',id});}
   finally{this.sending=false;}
  }
  private async finish(){if(!this.applied||!this.acknowledged)return;this.activeRound=false;clearTimeout(this.transferTimer);this.trusted=this.trusted.map(d=>d.id===this.remoteId?{...d,lastSync:new Date().toISOString()}:d);await this.saveTrust();await this.refreshConflicts();this.publish({phase:'done',message:this.status.conflicts?'Изменения получены. Выберите, какие версии оставить.':'Изменения переданы в обе стороны.',progress:100});if(this.pendingRound)this.schedule();}

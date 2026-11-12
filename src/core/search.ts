@@ -1,3 +1,4 @@
+import {attachments} from './attachments';
 import MiniSearch from 'minisearch';
 import {stemmer} from '@orama/stemmers/russian';
 import type {Atom} from './model';
@@ -18,6 +19,6 @@ export function excerpt(text:string,query:string,limit=160):Fragment[]{
 export class NoteSearch {
  private index=new MiniSearch({fields:['title','aliases','content','tags'],tokenize:text=>words(text).map(m=>m[0]),processTerm:wordStem});
  private signatures=new Map<string,string>();
- sync(atoms:Atom[]){const ids=new Set(atoms.map(a=>a.id));for(const id of this.signatures.keys())if(!ids.has(id)){this.index.discard(id);this.signatures.delete(id);}for(const a of atoms){const doc={id:a.id,title:a.title,aliases:a.aliases.join(' '),content:a.content,tags:JSON.stringify(a.properties.tags??'')};const key=JSON.stringify(doc);if(this.signatures.get(a.id)===key)continue;if(this.signatures.has(a.id))this.index.replace(doc);else this.index.add(doc);this.signatures.set(a.id,key);}}
+ sync(atoms:Atom[]){const ids=new Set(atoms.map(a=>a.id));for(const id of this.signatures.keys())if(!ids.has(id)){this.index.discard(id);this.signatures.delete(id);}for(const a of atoms){const doc={id:a.id,title:a.title,aliases:a.aliases.join(' '),content:a.content+' '+attachments(a).map(f=>f.transcript||'').join(' '),tags:JSON.stringify(a.properties.tags??'')};const key=JSON.stringify(doc);if(this.signatures.get(a.id)===key)continue;if(this.signatures.has(a.id))this.index.replace(doc);else this.index.add(doc);this.signatures.set(a.id,key);}}
  search(query:string,atoms:Atom[]){if(!query.trim())return[];const byId=new Map(atoms.map(a=>[a.id,a]));return this.index.search(query,{boost:{title:5,aliases:4,content:1,tags:2},combineWith:'AND',prefix:(_term,i,terms)=>i===terms.length-1,fuzzy:term=>term.length>=5?1:false}).map(r=>({a:byId.get(r.id)!,score:r.score*(fold(byId.get(r.id)?.title??'')===fold(query)?3:1)})).filter(r=>r.a).sort((a,b)=>b.score-a.score).slice(0,50).map(r=>r.a);}
 }

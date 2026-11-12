@@ -1,5 +1,6 @@
 import {it,expect} from 'vitest';
-import {acceptsPluginSetting,pluginSyncMode} from '../src/sync/profile';
+import {acceptsPluginSetting,pluginSyncMode,sharedSetting,profileSetting} from '../src/sync/profile';
+it('keeps the Whisper model choice local to the device across workspaces',()=>{expect(sharedSetting('plugin:builtin.transcription:model')).toBe(false);expect(profileSetting('plugin:builtin.transcription:model')).toBe(true);expect(sharedSetting('plugin:builtin.transcription:language')).toBe(true);});
 it('defaults to the full functional profile and keeps visual sync independent',()=>{
  const installed=new Set(['my.notes']);expect(pluginSyncMode(undefined)).toBe('all');
  for(const key of ['disabled-builtins','community-plugins','preferences','plugin:other.notes:config'])expect(acceptsPluginSetting(key,'all',installed)).toBe(true);

@@ -306,7 +306,7 @@ export class GpuMapRenderer {
                 entry.pin.moveTo(0, 4).lineTo(0, 12).stroke({ color: n.pinColor, width: 1.8, cap: 'round' });
             }
             entry.pin.position.set(n.radius - 2, -n.radius - 3);
-            entry.pin.scale.set(.65);
+            entry.pin.scale.set(.85);
             entry.pin.rotation = .55;
             changed = true;
         }

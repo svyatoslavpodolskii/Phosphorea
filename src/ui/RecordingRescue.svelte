@@ -1,0 +1,8 @@
+<script lang="ts">
+ import {onMount} from 'svelte';import type {Core} from '../core/core';
+ let {core}:{core:Core}=$props();let takes=$state<Blob[]>([]),saving=$state(false);const take=$derived(takes[0]);
+ onMount(()=>{const off=core.on('media:error',event=>{if(event.recording instanceof Blob)takes=[...takes,event.recording];});const warn=(event:BeforeUnloadEvent)=>{if(take){event.preventDefault();event.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>{off();window.removeEventListener('beforeunload',warn);};});
+ async function save(){if(!take||saving)return;saving=true;try{const current=take;const {download}=await import('../core/backup');download('Аудиозапись.'+(current.type.includes('ogg')?'ogg':current.type.includes('mp4')?'m4a':'webm'),new Uint8Array(await current.arrayBuffer()),current.type);takes=takes.filter(item=>item!==current);}finally{saving=false;}}
+</script>
+{#if take}<aside class="recording-rescue" role="alert"><strong>Сохраните аудиозапись</strong><p>Браузер не смог записать её в хранилище. Звук ещё здесь — скачайте файл перед закрытием приложения.</p><button disabled={saving} onclick={save}>{saving?'Подготавливаем…':'Сохранить аудиофайл'}</button></aside>{/if}
+<style>.recording-rescue{position:fixed;z-index:400;bottom:calc(100px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 32px));padding:16px;border-radius:22px;background:var(--theme-surface);border:1px solid var(--theme-border);box-shadow:0 8px 32px #0003;color:var(--theme-text)}strong{font-size:14px}p{font-size:12px;line-height:1.6;color:var(--theme-muted)}button{width:100%;min-height:44px;background:var(--theme-accent);color:var(--theme-onAccent);border:0;border-radius:14px}</style>

@@ -1,0 +1,8 @@
+import {stopTranscriptions} from '../audio/service';
+import type {Plugin} from './api';import {MODELS,DEFAULT_MODEL} from '../audio/models';
+export const mediaPlugins:Plugin[]=[
+ {manifest:{id:'builtin.media',name:'Фото и видео',description:'Снимки камеры, изображения и видео внутри заметок.',version:'1.0.0',apiVersion:1,permissions:[]},activate(){}},
+ {manifest:{id:'builtin.audio',name:'Аудиозаметки',description:'Запись микрофона и загрузка аудио в заметки.',version:'1.0.0',apiVersion:1,permissions:['settings'],settings:[{key:'autoTranscribe',label:'Расшифровывать после записи, если модель скачана',type:'boolean',default:true}]},activate(){}},
+ {manifest:{id:'builtin.transcription',name:'Локальная расшифровка',description:'Whisper на устройстве. Модели загружаются отдельно по вашему желанию.',version:'1.0.0',apiVersion:1,permissions:['settings'],settings:[{key:'model',label:'Модель для новых расшифровок',type:'select',default:DEFAULT_MODEL,options:MODELS.map(m=>({value:m.id,label:m.name}))},{key:'language',label:'Язык записи',type:'select',default:'auto',options:[{value:'auto',label:'Определять автоматически'},{value:'russian',label:'Русский'},{value:'english',label:'Английский'},{value:'ukrainian',label:'Украинский'},{value:'kazakh',label:'Казахский'},{value:'german',label:'Немецкий'},{value:'french',label:'Французский'},{value:'spanish',label:'Испанский'}]}]},activate(){return stopTranscriptions;}},
+ {manifest:{id:'builtin.pinning',name:'Закрепление атомов',description:'Закрепление на карте, значки и быстрые действия при перетаскивании.',version:'1.0.0',apiVersion:1,permissions:[]},activate(){}},
+];

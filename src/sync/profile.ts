@@ -13,10 +13,10 @@ export function acceptsPluginSetting(key:string,mode:PluginSyncMode,installed:Se
  const id=key.slice(7).split(':')[0];return id.startsWith('builtin.')||installed.has(id);
 }
 /** Migration receipts are device-local, but share the same scope as plugin defaults. */
-export function profileSetting(key:string){return sharedSetting(key)||['retired-builtins-v1','map-tools-defaults-v1','plugin-defaults-v2','lasso-default-v2'].includes(key);}
+export function profileSetting(key:string){return sharedSetting(key)||key==='plugin:builtin.transcription:model'||['retired-builtins-v1','map-tools-defaults-v1','plugin-defaults-v2','lasso-default-v2'].includes(key);}
 /** Device trust, filesystem bindings, backups and camera state never travel. */
-export function sharedSetting(key:string){return typeof key==='string'&&(['preferences',APPEARANCE,'disabled-builtins','community-plugins'].includes(key)||key.startsWith('plugin:')&&!key.startsWith('plugin:builtin.obsidian:'));}
-export function visualSetting(key:string){return key===APPEARANCE||/^plugin:builtin\.(appearance|animations|zoom)/.test(key);}
+export function sharedSetting(key:string){return typeof key==='string'&&(['preferences',APPEARANCE,'disabled-builtins','community-plugins'].includes(key)||key.startsWith('plugin:')&&key!=='plugin:builtin.transcription:model'&&!key.startsWith('plugin:builtin.obsidian:'));}
+export function visualSetting(key:string){return key===APPEARANCE||/^plugin:builtin\.(appearance|animations|zoom|interface)/.test(key);}
 export function functionalPreferences(value:any){const {theme,customThemes,...rest}=value||{};return rest;}
 export function validateSetting(key:string,value:unknown){
  if(!sharedSetting(key)||key.length>300||value===undefined||JSON.stringify(value).length>12_000_000)throw Error('Недопустимая общая настройка.');

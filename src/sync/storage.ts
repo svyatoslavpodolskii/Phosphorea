@@ -73,11 +73,12 @@ function materialize(db:Database,records:SyncRecord[],write:Transact){
  if(edgeOps.length)write(db,edgeOps,true);
 }
 /** One transaction for versions AND their materialized graph; no partial import. */
-export function applyRecords(db:Database,input:unknown,write:Transact){
+export function applyRecords(db:Database,input:unknown,write:Transact,extra:Mutation[]=[]){
  if(!Array.isArray(input)||input.length>150000)throw Error('Слишком большая карта для синхронизации.');
  const seen=new Set<string>();for(const r of input){validateRecord(r);if(seen.has(key(r)))throw Error('Повтор записи.');seen.add(key(r));}
  // Bootstrap old local records before comparing a first sync.
  exportRecords(db);db.exec('BEGIN IMMEDIATE');try{
+  if(extra.length)write(db,extra,true);
   const changed:SyncRecord[]=[];
   for(const incoming of input as SyncRecord[]){const local=get(db,key(incoming)) as SyncRecord|undefined;const r={...incoming,heads:mergeHeads([...(local?.heads||[]),...incoming.heads])};if(canonical(local)!==canonical(r)){put(db,r);changed.push(r);}}
   // Edges previously blocked by an endpoint deletion can become valid on restore.

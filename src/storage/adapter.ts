@@ -32,6 +32,7 @@ export class SQLiteAdapter implements StorageAdapter {
  async transaction(ops:Mutation[]){const configs=ops.filter((op):op is Extract<Mutation,{kind:'setting'}>=>op.kind==='setting'&&sharedSetting(op.key));const changed=ops.some(op=>op.kind!=='setting')||(await Promise.all(configs.map(async op=>JSON.stringify(await this.getSetting(op.key))!==JSON.stringify(op.value)))).some(Boolean);await trackSave(()=>this.call<void>('transaction',ops));if(changed)this.changed();}
  getSetting<T>(key:string){return this.call<T|undefined>('getSetting',key);}
  restoreDatabase(bytes:Uint8Array){return trackSave(()=>this.call<void>('restoreDatabase',bytes));}
+ compactDatabase(){return this.call<{before:number;after:number}>('compactDatabase');}
  exportDatabase(){return this.call<Uint8Array>('exportDatabase');}
  workspaces(){return this.call<WorkspaceCatalog>('workspaces');}
  createWorkspace(name:string){return this.call<WorkspaceCatalog>('createWorkspace',name);}

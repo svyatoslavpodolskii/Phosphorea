@@ -1,3 +1,4 @@
+import {prepareAttachment,ATTACHMENTS} from '../../src/core/attachments';
 import {test,expect,type Page} from '@playwright/test';
 import {makeAtom} from '../../src/core/model';
 import {packStorage} from '../../src/storage/native-backup';
@@ -7,8 +8,9 @@ async function volumePage(page:Page){await page.getByRole('button',{name:'Пла
 
 test('full storage backup restores through staged OPFS and rejects damaged input',async({page})=>{
  await page.goto('/');await expect(page.locator('canvas.map')).toBeVisible();
- const original=makeAtom({title:'Portable thought',state:'now',paused:true,x:250,y:-90,pinned:true,properties:{custom:'kept'}});
- await importMap(page,{atoms:[original],links:[]});await openSettings(page);
+ const media=await prepareAttachment(new Blob(['native backup media'],{type:'audio/webm'}),'native.webm');
+ const original=makeAtom({title:'Portable thought',state:'now',paused:true,x:250,y:-90,pinned:true,properties:{custom:'kept',[ATTACHMENTS]:[media.meta]}});
+ await importMap(page,{atoms:[original],links:[],attachments:[media]} as any);await openSettings(page);
  await expect(page.getByRole('button',{name:'Экспорт карты',exact:true})).toBeHidden();
  await volumePage(page);await page.getByLabel('Громкость отклика',{exact:true}).fill('0.2');await closeSettings(page);await openSettings(page);await dataPage(page);
  const downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Создать резервную копию',exact:true}).click();const file=await downloading;
@@ -25,7 +27,7 @@ test('full storage backup restores through staged OPFS and rejects damaged input
  await expect(page.getByRole('alert')).toBeVisible();await closeSettings(page);expect((await readMap(page)).atoms).toHaveLength(2);
  await openSettings(page);await dataPage(page);await page.getByLabel('Полная резервная копия',{exact:true}).setInputFiles({name:'backup.phosphora',mimeType:'application/octet-stream',buffer:bytes});
  await page.getByRole('button',{name:'Восстановить хранилище',exact:true}).click();await expect(page.getByRole('dialog',{name:'Настройки',exact:true})).toHaveCount(0);
- await expect(page.locator('canvas.map')).toBeVisible();const restored=await readMap(page);expect(restored.atoms).toEqual([original]);
+ await expect(page.locator('canvas.map')).toBeVisible();const restored=await readMap(page);expect(restored.atoms).toEqual([original]);expect((restored as any).attachments[0].chunks).toEqual(media.chunks);
  await openSettings(page);await volumePage(page);await expect(page.getByLabel('Громкость отклика',{exact:true})).toHaveValue('0.2');
  await closeSettings(page);
  await page.getByRole('button',{name:'Выбрать хранилище',exact:true}).click();

@@ -10,7 +10,6 @@ export function behaviorPlugin(read:()=>Preferences,write:(patch:Partial<Prefere
  const fields:SettingField[]=[
   {key:'graphModel',label:'Модель карты',type:'select',default:'builtin.branch:structure',options:[{value:'builtin.branch:structure',label:'Ветви'},{value:'builtin.molecule:structure',label:'Молекула'},{value:'builtin.compact:structure',label:'Созвездия'}]},
   {key:'liveliness',label:'Живость карты',type:'range',min:0,max:1,step:.05,default:0},
-  {key:'pinning',label:'Закрепление атомов',type:'boolean',default:true},
   ...Object.entries(PHYSICS_RANGES).map(([key,[min,max]]):SettingField=>({key,label:labels[key as keyof PhysicsSettings],type:'range',min,max,step:(max-min)/100,default:PRESETS.calm[key as keyof PhysicsSettings]})),
   {key:'linkMode',label:'Связи из текста',type:'select',default:'suggest',options:[{value:'suggest',label:'Предлагать'},{value:'automatic',label:'Автоматически'},{value:'off',label:'Выключено'}]},
  ];

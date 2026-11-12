@@ -1,6 +1,11 @@
 <script lang="ts">
  let {id}:{id:string}=$props();
  const paths:Record<string,string>={
+  interface:'M3 4h18v16H3zM3 9h18M9 9v11',
+  media:'M3 5h18v15H3zM3 16l6-6 5 5 3-3 4 4M15 8h2',
+  audio:'M9 3h6v12H9zM6 11v3a6 6 0 0 0 12 0v-3M12 20v3M8 23h8',
+  transcription:'M4 4h16v16H4zM7 8h10M7 12h10M7 16h6',
+  pinning:'M8 3h8l-1 6 3 3H6l3-3-1-6ZM12 12v9',
   animations:'m5 4 15 8-15 8ZM2 6v12',
   sound:'M11 4 6 8H3v8h3l5 4ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14',
   daily:'M4 5h16v16H4zM8 2v6M16 2v6M4 10h16M8 14h3v3H8z',

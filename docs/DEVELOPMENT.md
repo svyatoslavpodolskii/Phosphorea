@@ -55,11 +55,21 @@ npx playwright test --config tests/pages.config.ts
 ```sh
 npm run check
 npm test
-npx playwright install chromium
+npx playwright install chromium firefox
 npm run build
-npm run test:e2e
+npx playwright test --config tests/release.config.ts
+npx playwright test --config tests/media.config.ts
+npx playwright test --config tests/sync.config.ts
 ```
 
-Для benchmark запустите dev-сервер, затем `node scripts/benchmark.mjs`. Результат — `artifacts/graph-benchmark.json`.
+Для замеров камеры используйте `npx playwright test --config tests/performance.config.ts`.
+Результаты сохраняются в `artifacts/performance/`. Это измерения на компьютере,
+с которого запущен тест, а не обещание частоты кадров на любом телефоне.
+
+Настоящая проверка Whisper запускается отдельно, с загрузкой Tiny и публичного
+речевого примера. PowerShell: `$env:LIVE_WHISPER='1'`, затем
+`npx playwright test --config tests/media.config.ts --grep 'real Whisper'`.
+Тест отключает сеть, закрывает редактор и проверяет сохранённую расшифровку
+в Chromium и Firefox. Без этой переменной модели в тестах не скачиваются.
 
 Смотрите [архитектуру](ARCHITECTURE.md), [Plugin API](PLUGIN_API.md) и [текущее состояние](PROJECT_STATE.md).

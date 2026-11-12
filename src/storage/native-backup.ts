@@ -1,4 +1,4 @@
-import {zipSync,unzipSync,strToU8,strFromU8} from 'fflate';
+import {zip,unzipSync,strToU8,strFromU8} from 'fflate';
 import {SCHEMA_VERSION} from './schema';
 const LIMIT=256*1024*1024;
 export interface NativeManifest {format:'phosphored-storage';version:1;schema:number;name:string;createdAt:string;sha256:string}
@@ -11,7 +11,7 @@ export function backupFilename(name:string,date=new Date()){
 export async function packStorage(database:Uint8Array,name:string){
  if(database.length>LIMIT)throw Error('Копия превышает 256 МБ.');
  const manifest:NativeManifest={format:'phosphored-storage',version:1,schema:SCHEMA_VERSION,name,createdAt:new Date().toISOString(),sha256:await digest(database)};
- return zipSync({'manifest.json':strToU8(JSON.stringify(manifest)),'storage.sqlite3':database},{level:0});
+ return new Promise<Uint8Array>((resolve,reject)=>zip({'manifest.json':strToU8(JSON.stringify(manifest)),'storage.sqlite3':database},{level:6},(error,result)=>error?reject(error):resolve(result)));
 }
 export async function unpackStorage(bytes:Uint8Array){
  if(bytes.length>LIMIT+100_000)throw Error('Копия превышает 256 МБ.');
