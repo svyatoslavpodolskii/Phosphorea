@@ -8,12 +8,13 @@ test('release history appears once after an upgrade and remains available in set
  await page.setViewportSize({width:1440,height:900});
  await page.addInitScript(()=>{if(!localStorage.getItem('release-test-started')){localStorage.setItem('phosphorea:release-seen','0.9.3');localStorage.setItem('release-test-started','yes');}});
  await page.goto('/');
- const notes=page.getByRole('dialog',{name:'Больше ясности, меньше прерываний'});
- await expect(notes).toBeVisible();await settled(page);await page.screenshot({path:'artifacts/release-desktop.png'});
+ const notes=page.locator('.release-notes');
+ await expect(notes).toBeVisible();await expect(page.getByRole('navigation',{name:'Полученные обновления'})).toBeVisible();await settled(page);await page.screenshot({path:'artifacts/release-desktop.png'});
+ await notes.getByRole('button',{name:'0.9.4',exact:true}).click();await expect(notes.getByRole('heading',{name:'Больше ясности, меньше прерываний'})).toBeVisible();await notes.getByRole('button',{name:'0.9.5',exact:true}).click();
  await notes.getByRole('button',{name:'Продолжить',exact:true}).click();
  await page.reload();await expect(page.locator('main')).toHaveClass(/app-ready/);await expect(notes).toHaveCount(0);
  await openSettings(page);await page.getByRole('button',{name:'Что нового',exact:true}).click();await expect(notes).toBeVisible();
- await notes.getByRole('button',{name:'Предыдущие версии'}).click();await expect(notes.getByText('Заметки путешествуют вместе с вами')).toBeVisible();
+ await notes.getByRole('button',{name:'0.9.3',exact:true}).click();await expect(notes.getByText('Заметки путешествуют вместе с вами')).toBeVisible();
  await page.keyboard.press('Escape');await expect(notes).toHaveCount(0);
 });
 

@@ -3,6 +3,8 @@
  import TouchFeedback from '../ui/TouchFeedback.svelte';
  import ZoomControl from '../ui/ZoomControl.svelte';
  import type {ZoomControls} from '../plugins/interface';
+ import {RasterCache} from './raster-cache';
+ const rasterCache=new RasterCache();
  import {LabelCollisions} from './label-collision';
  import {edgeCurve} from './edge-curve';
  import RelationshipLayer from '../ui/RelationshipLayer.svelte';
@@ -53,7 +55,9 @@
  let touchFeedback=$state<{x:number;y:number;id:number;held:boolean}|null>(null);let feedbackTimer:ReturnType<typeof setTimeout>;let feedbackId=0;let scopeCamera:Camera|null=null;let folderCamera:Camera|null=null;let lastEmptyTap={x:0,y:0,time:-Infinity};
  let structureSeen=false,currentStructure:string|undefined,frameStructure=false;
  $effect(()=>{const mode=prefs.graphModel;if(structureSeen&&mode!==currentStructure)frameStructure=true;currentStructure=mode;structureSeen=true;});
- function fitted(ids?:string[]){const nodes=(model.expanded?.nodes||model.nodes).filter(n=>!ids||ids.includes(n.id));if(!nodes.length)return {x:0,y:0,zoom:1};return fitCamera({minX:Math.min(...nodes.map(n=>n.x-n.radius-20)),maxX:Math.max(...nodes.map(n=>n.x+n.radius+20)),minY:Math.min(...nodes.map(n=>n.y-n.radius-15)),maxY:Math.max(...nodes.map(n=>n.y+n.radius+55))},{width,height});}
+ let fitCache:{nodes:GraphNode[];width:number;height:number;camera:Camera}|undefined;
+ function fitted(ids?:string[]){const source=model.expanded?.nodes||model.nodes;if(!ids&&!moving&&fitCache?.nodes===source&&fitCache.width===width&&fitCache.height===height)return fitCache.camera;const allowed=ids?new Set(ids):null;let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;for(const node of source){if(allowed&&!allowed.has(node.id))continue;minX=Math.min(minX,node.x-node.radius-20);maxX=Math.max(maxX,node.x+node.radius+20);minY=Math.min(minY,node.y-node.radius-15);maxY=Math.max(maxY,node.y+node.radius+55);}const value=Number.isFinite(minX)?fitCamera({minX,maxX,minY,maxY},{width,height}):{x:0,y:0,zoom:1};if(!ids&&!moving)fitCache={nodes:source,width,height,camera:value};return value;}
+
  function frameMap(onlyOutside=false){const target=fitted();if(onlyOutside&&target.zoom>=camera.zoom)return;scopeCamera=null;rig.retarget(target);schedule();}
  function zoomSlider(value:number){adopt();const all=fitted(),min=all.zoom,zoom=Math.exp(Math.log(min)+(Math.log(MAX_ZOOM)-Math.log(min))*value/100);if(value===0)rig.retarget(all);else rig.zoomTo({x:width/2,y:height/2},zoom);schedule();}
  const sliderValue=()=>Math.max(0,Math.min(100,100*Math.log(camera.zoom/fitted().zoom)/Math.log(MAX_ZOOM/fitted().zoom)));
@@ -75,7 +79,9 @@
   // expensive things a frame can ask for on a phone. The theme only changes rarely.
   let paletteCache:{background:string;text:string;muted:string;accent:string;edge:string;strong:boolean}|null=null;
   function readPalette(){if(paletteCache)return paletteCache;const style=getComputedStyle(canvas);return paletteCache={strong:style.getPropertyValue('--theme-strong').trim()==='1',background:style.getPropertyValue('--theme-background').trim(),text:style.getPropertyValue('--theme-text').trim(),muted:style.getPropertyValue('--theme-muted').trim(),accent:style.getPropertyValue('--theme-accent').trim(),edge:style.getPropertyValue('--theme-edge').trim()};}
-  const invalidatePalette=()=>{gpu?.invalidate();paletteCache=null;inkCache.clear();clearSprites();schedule();};
+  const invalidatePalette=()=>{rasterCache.clear();gpu?.invalidate();paletteCache=null;inkCache.clear();clearSprites();schedule();};
+ let visualSource:PaintedNode[]|undefined;let priorityNodes:PaintedNode[]=[];
+ const atomStates=$derived(new Map(data.atoms.map(a=>[a.id,a.paused?'paused':a.state])));
  const scene=new SemanticScene();const satelliteCache=new Map<string,{id:string;x:number;y:number;color:string}>();const displayed=new Map<string,PaintedNode>();
  let gpuHost:HTMLDivElement;let gpu=$state.raw<GpuMapRenderer|null>(null);let gpuFailed=$state(false);let renderBackend=$state('canvas');let rendererSettled=true;let pendingGpu=$state.raw<GpuMapRenderer|null>(null);let gpuStarting=$state(true);let firstMap=false;let driftTime=0;
  let overlayDirty=false;let drawingContext:CanvasRenderingContext2D|null=null;
@@ -88,7 +94,7 @@
  $effect(()=>{const ids=[...lassoSelection];untrack(()=>onselection(ids));});
  $effect(()=>{providerVersion;if(!providers.hasTool('lasso')){lasso=null;lassoing=false;lassoSelection=[];schedule();}});
  function inside(point:Point,polygon:Point[]){let found=false;for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){const a=polygon[i],b=polygon[j];if((a.y>point.y)!==(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)found=!found;}return found;}
- function finishLasso(){const path=lasso;lasso=null;lassoing=false;if(!path||path.length<3){schedule();return;}lassoSelection=[...new Set(painted.filter(n=>n.opacity>.5&&inside({x:width/2+camera.x+n.x*camera.zoom,y:height/2+camera.y+n.y*camera.zoom},path)).flatMap(n=>n.members||[n.id]))];schedule();}
+ function finishLasso(){const path=lasso;lasso=null;lassoing=false;if(!path||path.length<3){schedule();return;}lassoSelection=[...new Set(painted.filter(n=>n.opacity>.5&&inside({x:width/2+camera.x+n.x*camera.zoom,y:height/2+camera.y+n.y*camera.zoom},path)).flatMap(n=>n.members||[n.id]))];if(lassoSelection.length)playSound('drop');schedule();}
 
  const pointers=new Map<number,Point>();let start:{x:number;y:number;worldX?:number;worldY?:number;dragOrigin?:Point;section?:string;node?:GraphNode;target?:GraphNode;panX:number;panY:number;moved?:boolean}|null=null;let moving:GraphNode|null=null;let pinch=0;let pinchStart:{distance:number;zoom:number}|null=null;let fromPinch=false;let longTimer:ReturnType<typeof setTimeout>;let holdStarted=0;let pendingDrag=false;let holdReady=false;let touchStart=false;let suppressReleaseClick=false;let panSample={x:0,y:0,time:0},panVelocity={x:0,y:0};
  function adopt(){rig.resize({width,height});}
@@ -101,18 +107,20 @@
    if(!sameCamera(camera,next)){const dz=Math.log(next.zoom/camera.zoom);if(Math.abs(dz)>.0001)motionSound('zoom',Math.min(1,Math.abs(dz)*1000/dt/2.5),Math.sign(dz));publishedCamera={x:next.x,y:next.y,zoom:next.zoom};camera=publishedCamera;cameraMoving=true;}
    controller?.setInteracting(pointers.size>0||rig.moving||linkInteracting);
   const visual=scene.advance(model,dt,reduced,moving?.id,collapseAmount(camera.zoom));
-  const unsettled=visual.active;transitioning=unsettled;const attention=visualAttention(visual.nodes,camera,{width,height},selected,now-recentAt<3000?recent:'',focal);visualFocus=attention.focus;if((physicsEnabled?prefs.liveliness:0)&&!reduced&&!paused&&!pointers.size&&!rig.moving&&!document.hidden)driftTime+=dt;
- painted=visual.nodes.map(n=>{const phase=[...n.id].reduce((v,c)=>v+c.charCodeAt(0),0),amplitude=!n.pinned&&!reduced?(physicsEnabled?prefs.liveliness:0)*5:0;return {...n,x:n.x+Math.sin(driftTime/3800+phase)*amplitude,y:n.y+Math.cos(driftTime/4700+phase)*amplitude,attention:attention.scores.get(n.id)??.4};});hitCache=null;displayed.clear();for(const n of painted)displayed.set(n.id,n);
+  const unsettled=visual.active;transitioning=unsettled;if((physicsEnabled?prefs.liveliness:0)&&!reduced&&!paused&&!pointers.size&&!rig.moving&&!document.hidden)driftTime+=dt;
+ const amplitude=physicsEnabled&&!reduced?prefs.liveliness*5:0;
+ if(visualSource!==visual.nodes||amplitude){visualSource=visual.nodes;painted=visual.nodes.map(n=>{if(!amplitude||n.pinned)return {...n};const phase=[...n.id].reduce((v,c)=>v+c.charCodeAt(0),0);return {...n,x:n.x+Math.sin(driftTime/3800+phase)*amplitude,y:n.y+Math.cos(driftTime/4700+phase)*amplitude};});priorityNodes=[...painted].sort((a,b)=>Number(Boolean(b.members||b.landmark))-Number(Boolean(a.members||a.landmark))||b.radius-a.radius||a.id.localeCompare(b.id));}
+ hitCache=null;if(displayed.size!==painted.length||painted.some(n=>displayed.get(n.id)!==n)){displayed.clear();for(const n of painted)displayed.set(n.id,n);}
   const ctx=drawingContext??(drawingContext=canvas.getContext('2d')!);const palette=readPalette();/* Software fallback quality follows scene size, never pointer state. */const dpr=Math.min(devicePixelRatio,2)*(data.atoms.length>250&&(!gpu?.available||gpuFailed)?.75:1);if(canvas.width!==Math.round(width*dpr)||canvas.height!==Math.round(height*dpr)){canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);}
-  const nodes=new Map(painted.map(n=>[n.id,n]));const visible=(n:GraphNode)=>{const x=width/2+camera.x+n.x*camera.zoom,y=height/2+camera.y+n.y*camera.zoom;return x>-200&&x<width+200&&y>-100&&y<height+100;};
-  const ambient=providers.hasTool('ambient-lens')&&lens!=='all',states=new Map(data.atoms.map(a=>[a.id,a.paused?'paused':a.state])),selectedIds=new Set(lassoSelection);const branch=model.branch||[],inBranch=new Set(branch);
-  for(const p of model.satellites||[])satelliteCache.set(p.id,p);const groups=visual.nodes.filter(n=>n.members&&n.opacity>.003),grouped=new Map(groups.flatMap(n=>n.members!.map(id=>[id,n] as const)));for(const id of satelliteCache.keys())if(!grouped.has(id))satelliteCache.delete(id);
+  const nodes=displayed;const visible=(n:{x:number;y:number})=>{const x=width/2+camera.x+n.x*camera.zoom,y=height/2+camera.y+n.y*camera.zoom;return x>-200&&x<width+200&&y>-100&&y<height+100;};
+  const ordered=priorityNodes.filter(visible),attention=visualAttention(ordered,camera,{width,height},selected,now-recentAt<3000?recent:'',focal);visualFocus=attention.focus;for(const node of ordered)node.attention=attention.scores.get(node.id)??.4;
+  const ambient=providers.hasTool('ambient-lens')&&lens!=='all',states=atomStates,selectedIds=new Set(lassoSelection);const branch=model.branch||[],inBranch=new Set(branch);
+  const groups=visual.nodes.filter(n=>n.members&&n.opacity>.003),grouped=new Map(groups.flatMap(n=>n.members!.map(id=>[id,n] as const)));if(groups.length){for(const p of model.satellites||[])satelliteCache.set(p.id,p);}else satelliteCache.clear();for(const id of satelliteCache.keys())if(!grouped.has(id))satelliteCache.delete(id);
   // Stable curve geometry and opacity buckets reduce draw calls without a
   // separate gesture appearance. A press must never change the whole scene.
    const icons=iconBudget(camera.zoom,{width,height});
    // Decoration and label priority is stable: hover only adds a local highlight,
    // never displaces another atom's icon, finish or title.
-   const ordered=painted.filter(visible).sort((a,b)=>Number(Boolean(b.members||b.landmark))-Number(Boolean(a.members||a.landmark))||b.radius-a.radius||a.id.localeCompare(b.id));
    const dense=data.atoms.length>250&&(!gpu?.available||gpuFailed),iconIds=new Set(ordered.slice(0,dense?Math.min(icons,8):icons).map(n=>n.id));
    const softIds=new Set(ordered.filter(n=>softHighlightVisible(n.radius,camera.zoom)||inBranch.has(n.id)).slice(0,dense?0:SOFT_BUDGET).map(n=>n.id));
   const accelerated=Boolean(gpu?.available&&!gpuFailed);
@@ -120,8 +128,8 @@
   const edgeLabels:{id:string;text:string;x:number;y:number}[]=[];const gpuDots:GpuDot[]=[];const gpuEdges:GpuEdge[]=[];const gpuNodes:GpuNode[]=[];renderBackend=accelerated?'webgl':'canvas';
   // A lens changes emphasis, while local relationships between visible atoms
   // remain readable even when the structural provider reduces its skeleton.
-  const shownEdges=new Set(visual.links.flatMap(l=>[l.id,l.id.replace(/^(detail|cluster):/,'')]));
-  const localEdges=ambient?data.links.flatMap(l=>{const a=nodes.get(l.from),b=nodes.get(l.to);return !shownEdges.has(l.id)&&a&&b&&visible(a)&&visible(b)?[{...l,opacity:.55*Math.min(a.opacity,b.opacity)}]:[];}):[];
+  const shownEdges=ambient?new Set(visual.links.flatMap(l=>[l.id,l.id.replace(/^(detail|cluster):/,'')])):null;
+  const localEdges=ambient?data.links.flatMap(l=>{const a=nodes.get(l.from),b=nodes.get(l.to);return !shownEdges!.has(l.id)&&a&&b&&visible(a)&&visible(b)?[{...l,opacity:.55*Math.min(a.opacity,b.opacity)}]:[];}):[];
   for(const l of [...visual.links,...localEdges]){
    const na=nodes.get(l.from),nb=nodes.get(l.to);const a=na,b=nb;
    if(!a||!b||(!visible(a)&&!visible(b)))continue;
@@ -143,13 +151,13 @@
    const show=Boolean(eligible&&(n.id===selected||!labelRects.overlaps(box)));
    labelLayout.set(n.id,{text,show});if(show)labelRects.add(box);
   }
-  if(accelerated&&groups.length){const cloud=new Map([...(model.expanded?.nodes||model.nodes),...satelliteCache.values()].map(p=>[p.id,p]));for(const l of model.expanded?.links||model.links){if(!grouped.has(l.from)&&!grouped.has(l.to))continue;const a=cloud.get(l.from),b=cloud.get(l.to),group=grouped.get(l.from)||grouped.get(l.to)!;if(a&&b)gpuEdges.push({id:'cloud:'+l.id,ax:a.x,ay:a.y,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,bx:b.x,by:b.y,width:.65/camera.zoom,color:palette.edge,alpha:.22*group.opacity*(group.attention??1)});}for(const [id,group] of grouped){const p=satelliteCache.get(id);if(p)gpuDots.push({id,x:p.x,y:p.y,radius:Math.max(3,1.15/camera.zoom),color:p.color==='#b4ecc1'?palette.accent:inkFor(p.color,palette.background),alpha:.55*group.opacity*(group.attention??1)});}}
+  if(accelerated&&groups.length){const cloud=new Map([...(model.expanded?.nodes||model.nodes),...satelliteCache.values()].map(p=>[p.id,p]));for(const l of model.expanded?.links||model.links){if(!grouped.has(l.from)&&!grouped.has(l.to))continue;const a=cloud.get(l.from),b=cloud.get(l.to),group=grouped.get(l.from)||grouped.get(l.to)!;if(a&&b&&(visible(a)||visible(b)))gpuEdges.push({id:'cloud:'+l.id,ax:a.x,ay:a.y,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,bx:b.x,by:b.y,width:.65/camera.zoom,color:palette.edge,alpha:.22*group.opacity*(group.attention??1)});}for(const [id,group] of grouped){const p=satelliteCache.get(id);if(p&&visible(p))gpuDots.push({id,x:p.x,y:p.y,radius:Math.max(3,1.15/camera.zoom),color:p.color==='#b4ecc1'?palette.accent:inkFor(p.color,palette.background),alpha:.55*group.opacity*(group.attention??1)});}}
   const gpuEdgeLabels:GpuEdgeLabel[]=accelerated?edgeLabels.filter(label=>{const x=width/2+camera.x+label.x*camera.zoom,y=height/2+camera.y+label.y*camera.zoom,half=measureText(label.text,13)*11/26*camera.zoom+8;return x+half>0&&x-half<width&&y>-40&&y<height+40;}).map(label=>({...label,y:label.y-11,size:11,color:palette.muted,alpha:1})):[];
   const worldOverlay=!accelerated;
   const screenOverlay=Boolean(lasso?.length||start&&pointers.size===1&&!dragging&&!lasso&&(holdReady||now-holdStarted>100));
   if(worldOverlay||screenOverlay||overlayDirty){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);overlayDirty=worldOverlay||screenOverlay;}
   if(worldOverlay){ctx.save();ctx.translate(width/2+camera.x,height/2+camera.y);ctx.scale(camera.zoom,camera.zoom);
-  if(groups.length){ctx.save();const cloud=new Map([...(model.expanded?.nodes||model.nodes),...satelliteCache.values()].map(p=>[p.id,p]));ctx.strokeStyle=palette.edge;ctx.lineWidth=.65/camera.zoom;for(const l of model.expanded?.links||model.links){if(!grouped.has(l.from)&&!grouped.has(l.to))continue;const a=cloud.get(l.from),b=cloud.get(l.to),group=grouped.get(l.from)||grouped.get(l.to)!;if(!a||!b)continue;ctx.globalAlpha=.22*group.opacity*(group.attention??1);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}for(const [id,group] of grouped){const p=satelliteCache.get(id);if(!p)continue;ctx.globalAlpha=.55*group.opacity*(group.attention??1);ctx.beginPath();ctx.arc(p.x,p.y,Math.max(3,1.15/camera.zoom),0,Math.PI*2);ctx.fillStyle=p.color==='#b4ecc1'?palette.accent:inkFor(p.color,palette.background);ctx.fill();}ctx.restore();}
+  if(groups.length){ctx.save();const cloud=new Map([...(model.expanded?.nodes||model.nodes),...satelliteCache.values()].map(p=>[p.id,p]));ctx.strokeStyle=palette.edge;ctx.lineWidth=.65/camera.zoom;for(const l of model.expanded?.links||model.links){if(!grouped.has(l.from)&&!grouped.has(l.to))continue;const a=cloud.get(l.from),b=cloud.get(l.to),group=grouped.get(l.from)||grouped.get(l.to)!;if(!a||!b)continue;ctx.globalAlpha=.22*group.opacity*(group.attention??1);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}for(const [id,group] of grouped){const p=satelliteCache.get(id);if(!p||!visible(p))continue;ctx.globalAlpha=.55*group.opacity*(group.attention??1);ctx.beginPath();ctx.arc(p.x,p.y,Math.max(3,1.15/camera.zoom),0,Math.PI*2);ctx.fillStyle=p.color==='#b4ecc1'?palette.accent:inkFor(p.color,palette.background);ctx.fill();}ctx.restore();}
   if(!accelerated)for(const {path,alpha,skeleton} of edgeBatches.values()){ctx.globalAlpha=alpha;ctx.strokeStyle=skeleton?palette.accent:palette.edge;ctx.lineWidth=(skeleton?1.9:1.2)/camera.zoom;ctx.stroke(path);}
   ctx.globalAlpha=1;ctx.fillStyle=palette.muted;ctx.font='11px system-ui';ctx.textAlign='center';for(const label of edgeLabels)ctx.fillText(label.text,label.x,label.y);
    ctx.globalAlpha=1;ctx.textAlign='center';}
@@ -159,6 +167,11 @@
   // Hover is the only thing the pointer may add. It never implies selection.
   if(!raster&&n.id===hover&&n.id!==selected){ctx.beginPath();ctx.arc(0,0,n.radius+5,0,Math.PI*2);ctx.strokeStyle=palette.text;ctx.lineWidth=1.2/camera.zoom;ctx.globalAlpha*=.45;ctx.stroke();ctx.globalAlpha/=.45;}
   if(!raster&&(n.state==='now'||n.id===selected||(n.members||[n.id]).some(id=>selectedIds.has(id))||holdReady&&start?.node?.id===n.id)){ctx.beginPath();ctx.arc(0,0,n.radius+8,0,Math.PI*2);ctx.strokeStyle=n.id===selected?palette.text:palette.accent;ctx.lineWidth=1.5/camera.zoom;ctx.setLineDash(n.state==='now'?[4,5]:[]);ctx.stroke();ctx.setLineDash([]);}
+  if(!raster){
+   const half=Math.ceil(n.radius*1.25+24),soft=n.id===selected||n.id===hover||moving?.id===n.id||softIds.has(n.id);
+   const key=['body',n.radius,n.shape,n.style,n.color,n.icon,Boolean(n.members),n.state,muted,lens,soft,palette.strong,inBranch.has(n.id),Boolean(n.pinned&&prefs.pinning&&camera.zoom>.55),palette.background,palette.accent,palette.text,palette.muted].join('|');
+   const image=rasterCache.get(key,half*2,half*2,p=>{p.translate(half-n.x,half-n.y);paintNode(p,true);});ctx.globalAlpha=opacity;ctx.drawImage(image,-half,-half,half*2,half*2);
+  }else{
   const color=muted?palette.muted:n.color==='#b4ecc1'?palette.accent:n.color;const ink=inkFor(color,palette.background);
   // The outline and its highlight are rebuilt per frame otherwise: a new Path2D,
   // a new gradient and a fresh colour parse for every node, on every frame.
@@ -173,19 +186,20 @@
   ctx.strokeStyle=ink;ctx.lineWidth=palette.strong?2.6:inBranch.has(n.id)&&n.id!==selected?2.1:1.35;ctx.setLineDash(n.style==='dashed'?[5,4]:[]);ctx.stroke(body.path);ctx.setLineDash([]);
   // What the hand is holding, and what the reader is looking at, always keep
   // their glyph even once the budget is spent.
-  if(mustHave||iconIds.has(n.id)&&iconLegible(n.radius,camera.zoom)){const size=n.members?24:22;ctx.drawImage(iconSprite(n.icon,ink,size),-size,-size,size*2,size*2);}  ctx.globalAlpha=(raster?1:opacity)*(muted?.28:1);
+  if(mustHave||iconIds.has(n.id)&&iconLegible(n.radius,camera.zoom)){const size=n.members?24:22;ctx.drawImage(iconSprite(n.icon,ink,size),-size,-size,size*2,size*2);}    if(n.pinned&&prefs.pinning&&camera.zoom>.55){ctx.save();ctx.translate(n.radius-2,-n.radius-3);ctx.scale(.65,.65);ctx.rotate(.55);ctx.strokeStyle=palette.text;ctx.fillStyle=palette.background;ctx.lineWidth=1.8;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-5,-8);ctx.lineTo(5,-8);ctx.lineTo(3,-1);ctx.quadraticCurveTo(7,1,7,4);ctx.lineTo(-7,4);ctx.quadraticCurveTo(-7,1,-3,-1);ctx.closePath();ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(0,4);ctx.lineTo(0,12);ctx.stroke();ctx.restore();}
+   ctx.restore();return;
+  }
+  ctx.globalAlpha=opacity*(muted?.28:1);
    if(!raster&&(camera.zoom>.55||!grouped.has(n.id)||n.members||n.landmark||n.radius>36||n.id===selected)){
    const {text,show}=labelLayout.get(n.id)!;
    ctx.font=text.size+'px system-ui';ctx.textBaseline='top';
    if(show){
     for(const [i,title] of text.lines.entries()){
-     ctx.fillStyle=palette.background;const w=measureText(title,13)*text.size/13,y=text.top+i*text.lineHeight;
-     ctx.fillRect(-w/2-3,y,w+6,text.size+3);ctx.fillStyle=palette.text;ctx.fillText(title,0,y);
+     const tileWidth=measureText(title,13)+6,scale=text.size/13,y=text.top+i*text.lineHeight;const tile=rasterCache.get('text:'+title+palette.background+palette.text,tileWidth,17,p=>{p.fillStyle=palette.background;p.fillRect(0,0,tileWidth,17);p.font='13px system-ui';p.textAlign='center';p.textBaseline='top';p.fillStyle=palette.text;p.fillText(title,tileWidth/2,0);});ctx.drawImage(tile,-tileWidth*scale/2,y,tileWidth*scale,17*scale);
     }
     if(text.caption){ctx.font=text.captionSize+'px system-ui';ctx.fillStyle=palette.muted;ctx.fillText(text.caption,0,text.captionTop);}
    }
   }
-  if(n.pinned&&prefs.pinning&&camera.zoom>.55){ctx.save();ctx.translate(n.radius-2,-n.radius-3);ctx.scale(.65,.65);ctx.rotate(.55);ctx.strokeStyle=palette.text;ctx.fillStyle=palette.background;ctx.lineWidth=1.8;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-5,-8);ctx.lineTo(5,-8);ctx.lineTo(3,-1);ctx.quadraticCurveTo(7,1,7,4);ctx.lineTo(-7,4);ctx.quadraticCurveTo(-7,1,-3,-1);ctx.closePath();ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(0,4);ctx.lineTo(0,12);ctx.stroke();ctx.restore();}
   ctx.restore();};
   if(accelerated){const {text,show}=labelLayout.get(n.id)!;const labels:GpuLabel[]=[],rings:GpuRing[]=[];
    if(show){for(const [i,title] of text.lines.entries())labels.push({text:title,x:0,y:text.top+i*text.lineHeight,size:text.size,color:palette.text,background:palette.background,alpha:muted?.28:1});if(text.caption)labels.push({text:text.caption,x:0,y:text.captionTop,size:text.captionSize,color:palette.muted,alpha:muted?.28:1});}
@@ -284,7 +298,7 @@
   // Safari reports trackpad pinch as gesture events instead of a ctrl-modified wheel.
   let lastGesture=1;const gestureStart=(e:any)=>{lastGesture=e.scale;},gestureMove=(e:any)=>{e.preventDefault();adopt();const r=canvas.getBoundingClientRect();rig.zoomAt({x:e.clientX-r.left,y:e.clientY-r.top},gestureZoomFactor(e.scale,lastGesture));lastGesture=e.scale;schedule();};
   canvas.addEventListener('gesturestart',gestureStart);canvas.addEventListener('gesturechange',gestureMove);
-  return()=>{clearTimeout(linkTimer);window.removeEventListener('phosphora-theme-change',invalidatePalette);window.removeEventListener('pointerdown',resetClick,true);window.removeEventListener('click',releaseClick,true);rig.halt();stopMotionSound();controller?.close();observer.disconnect();media.removeEventListener('change',motion);document.removeEventListener('visibilitychange',visibility);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('gesturestart',gestureStart);canvas.removeEventListener('gesturechange',gestureMove);clearTimeout(longTimer);cancelAnimationFrame(frame);};});
+  return()=>{clearTimeout(linkTimer);window.removeEventListener('phosphora-theme-change',invalidatePalette);window.removeEventListener('pointerdown',resetClick,true);window.removeEventListener('click',releaseClick,true);rig.halt();stopMotionSound();controller?.close();rasterCache.clear();observer.disconnect();media.removeEventListener('change',motion);document.removeEventListener('visibilitychange',visibility);canvas.removeEventListener('wheel',wheel);canvas.removeEventListener('gesturestart',gestureStart);canvas.removeEventListener('gesturechange',gestureMove);clearTimeout(longTimer);cancelAnimationFrame(frame);};});
 </script>
 <!-- svelte-ignore a11y_no_interactive_element_to_noninteractive_role (Canvas implements a keyboard-operated graph application; search supplies an accessible list.) -->
 <canvas data-renderer-loading={gpuStarting} data-renderer-pending={gpuStarting||Boolean(pendingGpu)} data-selection-count={lassoSelection.length} data-gesture={lassoing?'lasso':dragging?'drag':gestureActive?'touch':'idle'} data-renderer={renderBackend} data-camera-x={camera.x} data-camera-y={camera.y} data-zoom={camera.zoom} data-layout={model.arranging?'running':'idle'} data-transition={transitioning?'running':'idle'} data-visual-focus={visualFocus} data-focus={selected} data-hover={hover} data-context={painted.filter(n=>(n.attention??1)>.4).length} data-nodes={painted.filter(n=>n.opacity>.5).length} bind:this={canvas} class="map" class:gpu-active={renderBackend==='webgl'} role="application" aria-label="Карта атомов. Долгое нажатие или N для создания. Поиск для выбора, Enter для открытия, клавиши 1–4 для состояния." tabindex="0" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={cancel} onpointerleave={leave} oncontextmenu={e=>{e.preventDefault();if(pointers.size||dragging||'pointerType' in e&&e.pointerType==='touch')return;const n=nodeAt(position(e),true);if(n){if(lassoSelection.length>1&&(n.members||[n.id]).some(id=>lassoSelection.includes(id)))onbranch(lassoSelection);else n.members?onbranch(n.members):oncontext(n.id);}}} onkeydown={e=>{adopt();if(e.key.toLowerCase()==='n'){e.preventDefault();const point=world({x:width/2,y:height/2});onselect('');oncreate(point.x,point.y);}if(selected&&e.key==='Enter'){e.preventDefault();onopen(selected);}if(selected&&['1','2','3','4'].includes(e.key)){const state=(['normal','now','paused','archived'] as AtomState[])[Number(e.key)-1];if(lassoSelection.length>1&&lassoSelection.includes(selected))onstates(lassoSelection,state);else onstate(selected,state);}if(e.key==='Escape'){cancel();activeLink='';connectFrom='';lassoSelection=[];onselect('');}if(e.key==='+'||e.key==='=')rig.zoomStep(1.2);if(e.key==='-')rig.zoomStep(1/1.2);if(e.key.startsWith('Arrow')){e.preventDefault();rig.panBy(e.key==='ArrowLeft'?60:e.key==='ArrowRight'?-60:0,e.key==='ArrowUp'?60:e.key==='ArrowDown'?-60:0);}schedule();}}></canvas>

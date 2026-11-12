@@ -8,10 +8,12 @@ export interface PaintedLink extends Link{opacity:number;start?:Endpoint;end?:En
 
 /** Retained visual state. The simulation and saved coordinates never see this layer. */
 export class SemanticScene{
+ private memo?:{model:GraphModel;collapse:number;value:{nodes:PaintedNode[];links:PaintedLink[];active:boolean}};
  private nodes=new Map<string,PaintedNode>();
  private links=new Map<string,PaintedLink>();
  private arrivals=new Map<string,number>();private arrivalsReady=false;
   advance(model:GraphModel,dt:number,reduced=false,dragging='',collapse=1){
+   if(!dragging&&this.memo?.model===model&&this.memo.collapse===collapse)return this.memo.value;
    if(model.expanded){
     const initial=!this.arrivalsReady;this.arrivalsReady=true;const seen=new Set<string>();let arriving=false;
     const enter=(id:string)=>{seen.add(id);const previous=this.arrivals.get(id)??(initial?1:0);const opacity=reduced?1:previous+(1-previous)*(1-Math.exp(-Math.max(0,Math.min(64,dt))/65));const value=opacity>.997?1:opacity;this.arrivals.set(id,value);if(value<1)arriving=true;return value;};
@@ -23,7 +25,7 @@ export class SemanticScene{
     const byId=new Map(nodes.map(n=>[n.id,n]));const links:PaintedLink[]=[];
     for(const [kind,source] of [['cluster',model],['detail',model.expanded]] as const)for(const l of source.links){const a=byId.get(l.from),b=byId.get(l.to);if(!a||!b)continue;const opacity=(kind==='cluster'?collapse:1-collapse)*Math.min(this.arrivals.get(a.id)??1,this.arrivals.get(b.id)??1);if(opacity>.001)links.push({...l,id:kind+':'+l.id,opacity,start:a,end:b});}
     for(const id of this.arrivals.keys())if(!seen.has(id))this.arrivals.delete(id);
-    return {nodes:nodes.filter(n=>n.opacity>.001),links,active:arriving};
+    const value={nodes:nodes.filter(n=>n.opacity>.001),links,active:arriving};this.memo=!arriving&&!dragging?{model,collapse,value}:undefined;return value;
    }
    const initial=!this.nodes.size,blend=reduced?1:1-Math.exp(-Math.max(0,Math.min(64,dt))/65),targets=new Map(model.nodes.map(n=>[n.id,n]));
    const parents=new Map<string,GraphNode>();for(const n of model.nodes)for(const id of n.members||[])parents.set(id,n);
@@ -46,6 +48,6 @@ export class SemanticScene{
   for(const [id,old] of this.links){const target=linkTargets.get(id),opacity=old.opacity+((target?1:0)-old.opacity)*blend;if(!target&&opacity<.003){this.links.delete(id);continue;}if(Math.abs(opacity-(target?1:0))>.003)active=true;
    const next={...old,...target,opacity};for(const [key,id] of [['start',next.from],['end',next.to]] as const){const n=this.nodes.get(id);if(!n)continue;next[key]={x:n.x,y:n.y,radius:n.radius};}this.links.set(id,next);
   }
-  return{nodes:[...this.nodes.values()],links:[...this.links.values()],active};
+  const value={nodes:[...this.nodes.values()],links:[...this.links.values()],active};this.memo=!active&&!dragging?{model,collapse,value}:undefined;return value;
  }
 }

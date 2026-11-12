@@ -1,6 +1,15 @@
 export interface Release {version:string;date:string;title:string;intro:string;changes:{title:string;body:string}[]}
 /** User-facing history. Add the newest entry first with every published version. */
 export const releases:Release[]=[{
+ version:'0.9.5',date:'2026-11-12',title:'Попробуйте руками. Двигайтесь свободнее.',
+ intro:'Учебная карта для первых шагов, поиск под рукой и меньше лишней работы при движении по пространству.',
+ changes:[
+  {title:'Обучение с настоящими действиями',body:'Создайте мысль, свяжите атомы, обведите их лассо и попробуйте поиск на отдельной учебной карте. Она не меняет ваши записи.'},
+  {title:'Пространство для работы на компьютере',body:'Ctrl / ⌘ K открывает поиск в центре экрана. Редактор тоже расположен по центру и оставляет больше места тексту.'},
+  {title:'Более лёгкая карта',body:'Фон больше не перерисовывает звёзды на каждом шаге камеры. Сцена и оформление переиспользуются, а завершение выделения лассо получает звуковой отклик, если звук включён.'},
+  {title:'Все пропущенные обновления',body:'Если вы обновились через несколько версий, обзор покажет их списком. Каждую можно открыть отдельно; полная история доступна в настройках.'}
+ ]
+},{
  version:'0.9.4',date:'2026-11-12',title:'Больше ясности, меньше прерываний',
  intro:'Phosphorea подскажет, когда пора обновиться, и расскажет, что изменилось. А вы выбираете удобный момент.',
  changes:[
@@ -18,3 +27,4 @@ export const releases:Release[]=[{
  ]
 }];
 export const currentRelease=releases[0];
+export function releasesSince(version:string|null){if(!version||!/^\d+\.\d+\.\d+$/.test(version))return releases;const base=version.split('.').map(Number);return releases.filter(release=>{const parts=release.version.split('.').map(Number);for(let i=0;i<3;i++){if(parts[i]!==base[i])return parts[i]>base[i];}return false;});}

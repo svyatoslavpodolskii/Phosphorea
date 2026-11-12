@@ -1,8 +1,8 @@
 import {test,expect,type Page} from '@playwright/test';
 import {openSettings,closeSettings} from './helpers';
 
-const backdrop=(page:Page)=>page.locator('svg.theme-backdrop');
-const transforms=(page:Page)=>backdrop(page).locator('pattern').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('patternTransform')));
+const backdrop=(page:Page)=>page.locator('.theme-backdrop');
+const transforms=(page:Page)=>backdrop(page).locator('canvas').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('data-world-transform')));
 async function boot(page:Page){await page.goto('/');await page.waitForLoadState('networkidle');await expect(page.locator('canvas.map')).toBeVisible();}
 async function setMode(page:Page,mode:string){
  await openSettings(page);await page.getByRole('button',{name:'Плагины →',exact:true}).click();await page.locator('.plugin-row').filter({hasText:'Темы и атмосфера'}).getByRole('button',{name:'Настройки',exact:true}).click();
@@ -40,27 +40,27 @@ test('four contrast and soft presets apply readable palettes and survive reload'
 test('camera modes reuse bounded decoration nodes while panning and zooming',async({page})=>{
  await boot(page);await setMode(page,'static');
  const initial=await transforms(page);
- await pan(page);await page.getByRole('slider',{name:'Масштаб карты',exact:true}).fill('70');
+ await pan(page);await page.getByRole('slider',{name:'Масштаб карты',exact:true}).press('ArrowRight');
  await expect.poll(()=>page.locator('canvas.map').getAttribute('data-zoom')).not.toBe('1');
  expect(await transforms(page)).toEqual(initial);
  await setMode(page,'world');
  // Retain actual nodes, so replacing the field with an equivalent set also fails.
- await backdrop(page).evaluate(el=>{(globalThis as any).__themePoints=[...el.querySelectorAll('pattern > g')];});
+ await backdrop(page).evaluate(el=>{(globalThis as any).__themePoints=[...el.querySelectorAll('canvas')];});
  const world=await transforms(page);
  await pan(page);await expect.poll(()=>transforms(page)).not.toEqual(world);
  const panTransforms=await transforms(page);
- await page.getByRole('slider',{name:'Масштаб карты',exact:true}).fill('70');
+ await page.getByRole('slider',{name:'Масштаб карты',exact:true}).press('ArrowRight');
  await expect.poll(()=>transforms(page)).not.toEqual(panTransforms);
  const matrices=await transforms(page);expect(new Set(matrices).size).toBe(1);
  await setMode(page,'parallax');const parallax=await transforms(page);
  // Changing a saved theme may remount the backdrop. Only camera changes must reuse it.
- await backdrop(page).evaluate(el=>{(globalThis as any).__themePoints=[...el.querySelectorAll('pattern > g')];});
+ await backdrop(page).evaluate(el=>{(globalThis as any).__themePoints=[...el.querySelectorAll('canvas')];});
  await pan(page);await expect.poll(()=>transforms(page)).not.toEqual(parallax);
  expect(new Set(await transforms(page)).size).toBe(3);
- expect(await backdrop(page).locator('pattern > g').count()).toBeLessThanOrEqual(240);
+ expect(await backdrop(page).locator('canvas').count()).toBeLessThanOrEqual(240);
  expect(await backdrop(page).evaluate(el=>{
   const before=(globalThis as any).__themePoints as Element[];
-  const after=[...el.querySelectorAll('pattern > g')];
+  const after=[...el.querySelectorAll('canvas')];
   return before.length===after.length&&before.every((node,i)=>node===after[i]);
  })).toBe(true);
 });
@@ -74,10 +74,10 @@ test('mode persists through export/import and reduced motion disables decorative
  await closeSettings(page);await page.reload();await expect(backdrop(page)).toHaveAttribute('data-mode','parallax');
  await page.emulateMedia({reducedMotion:'reduce'});await expect(backdrop(page)).toHaveAttribute('data-mode','static');
  const before=await transforms(page);await pan(page);expect(await transforms(page)).toEqual(before);
- expect(await backdrop(page).locator('.spark').first().evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
+ expect(await backdrop(page).locator('canvas').first().evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
  await page.emulateMedia({reducedMotion:'no-preference'});await expect(backdrop(page)).toHaveAttribute('data-mode','parallax');
  // Exercise the same listener as a hidden browser tab without relying on headless focus.
  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));});
  await expect(backdrop(page)).toHaveClass(/sleeping/);
- expect(await backdrop(page).locator('.spark').first().evaluate(el=>getComputedStyle(el).animationPlayState)).toBe('paused');
+ expect(await backdrop(page).locator('canvas').first().evaluate(el=>getComputedStyle(el).animationPlayState)).toBe('paused');
 });

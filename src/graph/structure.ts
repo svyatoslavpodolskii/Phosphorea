@@ -21,9 +21,11 @@ export function structure(data:Snapshot){
   detach(l.to);parent.set(l.to,l.from);children.get(l.from)!.push(l.to);edges.add(l.id);explicit.add(l.to);
  }
  if(explicit.size)roots.splice(0,roots.length,...data.atoms.filter(a=>!parent.has(a.id)).map(a=>a.id));
- const size=new Map<string,number>();const count=(id:string):number=>{const value=1+children.get(id)!.reduce((sum,k)=>sum+count(k),0);size.set(id,value);return value;};roots.forEach(count);
- // Selection can outlive a deletion while an asynchronous projection finishes.
- const descendants=(id:string):string[]=>atoms.has(id)?[id,...(children.get(id)||[]).flatMap(descendants)]:[];
+ const order:string[]=[],stack=[...roots].reverse();while(stack.length){const id=stack.pop()!;order.push(id);const kids=children.get(id)!;for(let i=kids.length-1;i>=0;i--)stack.push(kids[i]);}
+ const size=new Map<string,number>();for(let i=order.length-1;i>=0;i--){const id=order[i];size.set(id,1+children.get(id)!.reduce((sum,key)=>sum+size.get(key)!,0));}
+ // Iterative traversal keeps long imported chains off the JavaScript call stack.
+ const descendants=(id:string):string[]=>{if(!atoms.has(id))return [];const result:string[]=[],pending=[id];while(pending.length){const key=pending.pop()!;result.push(key);const kids=children.get(key)||[];for(let i=kids.length-1;i>=0;i--)pending.push(kids[i]);}return result;};
+
  return {roots,parent,children,size,edges,descendants};
 }
 export function branchingLayout(data:Snapshot,mode='calm',distance=175){

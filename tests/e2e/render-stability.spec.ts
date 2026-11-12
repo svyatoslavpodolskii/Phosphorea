@@ -47,7 +47,7 @@ test('GPU scene renders independently of the gesture canvas and survives context
  });
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/');await expect(page.locator('canvas.map')).toHaveAttribute('data-renderer','webgl');
- await importMap(page,{atoms:[makeAtom({title:'GPU atom',pinned:true,x:0,y:0,appearance:{color:'#ff3366'}})],links:[]});
+ await importMap(page,{atoms:[makeAtom({title:'GPU atom',pinned:false,x:0,y:0,appearance:{color:'#ff3366'}})],links:[]});
  await expect(page.locator('canvas.map')).toHaveAttribute('data-nodes','1');
  await page.screenshot({path:'artifacts/gpu-map.png',animations:'disabled'});
  const screenshot=PNG.sync.read(await page.locator('canvas.map').screenshot({animations:'disabled'}));let pink=0;

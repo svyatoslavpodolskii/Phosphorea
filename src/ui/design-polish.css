@@ -47,4 +47,13 @@ header .sync-trigger{display:grid;place-items:center;flex:none;width:40px;height
 }
 @media(min-width:651px) and (max-height:650px){.scrim{padding:16px}.scrim>.editor{max-height:calc(100dvh - 32px)}.note-scrim>.note-editor:not(.expanded){height:calc(100dvh - 32px);padding:18px 24px}.note-editor .note-content{min-height:160px;height:32dvh}}
 .editor .row>*{min-width:0}.editor .row>button{flex-shrink:0}
+.search-veil{display:none}
+@media(min-width:651px){
+ header.searching{z-index:90}header.searching>button,header.searching>.save-status,header.searching>.sound-toggle{visibility:hidden}
+ header.searching .search-veil{display:block;position:fixed;inset:0;background:color-mix(in srgb,var(--theme-shadow),transparent 48%);z-index:0}
+ header.searching .search-open{position:fixed;top:min(24vh,200px);left:50%;right:auto;transform:translateX(-50%);width:min(640px,calc(100vw - 64px));height:64px;border-radius:20px;background:var(--theme-surface);box-shadow:0 12px 60px #0003;z-index:1;transition:none}
+ header.searching .search-trigger{width:60px;height:62px}header.searching .search-open input{left:60px;top:0;height:62px;width:calc(100% - 110px);font-size:20px}
+ header.searching .search-close{top:13px;right:10px}header.searching .search-results{top:74px;max-height:min(52dvh,520px);width:100%;max-width:none;border-radius:20px;padding:10px}
+ .note-scrim{justify-content:center}.note-scrim>.note-editor:not(.expanded){width:min(920px,calc(100vw - 64px));height:calc(100dvh - 64px);padding:24px clamp(24px,4vw,56px)}.note-editor .note-content{height:clamp(300px,52dvh,700px)}.note-editor .rich-text{min-height:300px;max-height:none}
+}
 @media(max-width:650px){header{gap:4px}}@media(max-width:360px){header .workspace-switch{width:44px;max-width:44px}header .workspace-switch>span:nth-child(2){display:none}}
