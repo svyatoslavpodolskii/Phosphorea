@@ -1,6 +1,8 @@
 let context:OffscreenCanvasRenderingContext2D|null|undefined;
 const widths=new Map<string,number>(),wrapped=new Map<string,string[]>(),segmenter=new Intl.Segmenter(undefined,{granularity:'grapheme'});
-function cache<T>(map:Map<string,T>,key:string,value:T){if(map.size>=4000)map.delete(map.keys().next().value!);map.set(key,value);return value;}
+// A 5000-note overview must not evict every label just before the next frame.
+// Keep the cache bounded while allowing several measurements per visible title.
+function cache<T>(map:Map<string,T>,key:string,value:T){if(map.size>=16384)map.delete(map.keys().next().value!);map.set(key,value);return value;}
 export function measureText(text:string,size=13){
  const key=size+'\0'+text,known=widths.get(key);if(known!==undefined)return known;
  if(context===undefined)context=typeof OffscreenCanvas==='undefined'?null:new OffscreenCanvas(1,1).getContext('2d');

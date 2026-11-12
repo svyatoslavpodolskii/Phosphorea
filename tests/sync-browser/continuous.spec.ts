@@ -33,7 +33,7 @@ test('persistent bilateral sync keeps workspaces and coordinates, shares plugins
  const phoneTheme=await pb.locator('html').getAttribute('data-theme');
  await openSettings(pa);await pa.getByRole('button',{name:'Плагины →',exact:true}).click();await pa.locator('.plugin-row').filter({hasText:'Темы и атмосфера'}).getByRole('button',{name:'Настройки',exact:true}).click();await pa.getByRole('button',{name:'Светлая',exact:true}).click();await closeSettings(pa);
  await pa.waitForTimeout(2500);expect(await pb.locator('html').getAttribute('data-theme')).toBe(phoneTheme);
- await sync(pb);await pb.getByLabel('Получать оформление с других устройств').check();await pb.getByRole('button',{name:'Закрыть синхронизацию'}).click();
+ await sync(pb);await pb.getByLabel('Синхронизировать оформление').check();await pb.getByRole('button',{name:'Закрыть синхронизацию'}).click();
  await expect.poll(()=>pb.locator('html').getAttribute('data-theme'),{timeout:20000}).toBe(await pa.locator('html').getAttribute('data-theme'));
  expect(errors).toEqual([]);await a.close();await b.close();
 });

@@ -82,7 +82,7 @@ export class SyncSession {
    await this.send({t:'manifest',workspaces:this.status.workspaces,selected:this.status.selected,protocol:2});return;
   }
   if(msg.t==='manifest'){
-   if(msg.protocol!==2)throw Error('???????? Phosphorea ?? ????? ??????????? ????? ??????????????.');if(!this.proved||this.manifestReceived)throw Error('Проверка списка хранилищ не пройдена.');validateWorkspaces(msg.workspaces);
+   if(msg.protocol!==2)throw Error('Обновите Phosphoreya на обоих устройствах перед подключением.');if(!this.proved||this.manifestReceived)throw Error('Проверка списка хранилищ не пройдена.');validateWorkspaces(msg.workspaces);
    if(!Array.isArray(msg.selected)||new Set(msg.selected).size!==msg.selected.length||msg.selected.some((id:unknown)=>typeof id!=='string'||!msg.workspaces.some((w:SyncWorkspace)=>w.id===id)))throw Error('Проверка списка хранилищ не пройдена.');
    this.manifestReceived=true;this.publish({remoteWorkspaces:msg.workspaces,remoteSelected:msg.selected,remoteOffered:msg.selected});
    const trusted=this.trusted.find(d=>d.id===this.remoteId),incoming=msg.workspaces.filter((w:SyncWorkspace)=>msg.selected.includes(w.id)).map((w:SyncWorkspace)=>w.scope),outgoing=this.status.workspaces.filter(w=>this.status.selected.includes(w.id)).map(w=>w.scope);

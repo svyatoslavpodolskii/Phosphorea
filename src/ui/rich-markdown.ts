@@ -1,4 +1,6 @@
 import {Extension,Node,mergeAttributes,type JSONContent} from '@tiptap/core';
+import {TableKit} from '@tiptap/extension-table';
+import Image from '@tiptap/extension-image';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import {NoteTaskItem} from './note-task-item';
@@ -40,18 +42,19 @@ export const SourceBlock=Node.create({
 
 const SourceIdentity=Extension.create({
  name:'sourceIdentity',
- addGlobalAttributes(){return[{types:['paragraph','heading','bulletList','orderedList','taskList','blockquote','codeBlock','horizontalRule','sourceBlock'],attributes:{sourceKey:{default:null,rendered:false}}}];},
+ addGlobalAttributes(){return[{types:['paragraph','heading','bulletList','orderedList','taskList','blockquote','codeBlock','horizontalRule','table','image','sourceBlock'],attributes:{sourceKey:{default:null,rendered:false}}}];},
 });
 
-export function richExtensions(){return[StarterKit.configure({underline:false,trailingNode:false,link:{openOnClick:false,autolink:false,linkOnPaste:false}}),TaskList,NoteTaskItem,WikiReference,SourceBlock,SourceIdentity,Markdown];}
+export function richExtensions(){return[StarterKit.configure({underline:false,trailingNode:false,link:{openOnClick:false,autolink:false,linkOnPaste:false}}),TableKit,Image.configure({allowBase64:false}),TaskList,NoteTaskItem,WikiReference,SourceBlock,SourceIdentity,Markdown];}
 
 const lexer=new Marked();
-const supported=new Set(['space','paragraph','text','heading','blockquote','list','list_item','checkbox','code','hr','strong','em','codespan','br','del','link','escape']);
+const supported=new Set(['space','paragraph','text','heading','blockquote','list','list_item','checkbox','code','hr','strong','em','codespan','br','del','link','escape','table','image']);
 function supportedToken(token:Token):boolean{
  if(!supported.has(token.type))return false;
  // Preserve dialect-specific syntax and ambiguous soft breaks in source blocks.
  if(token.type!=='code'&&(/\$|==|\^\^|%%|^>\s*\[!|\[\^|^\s*\[.+\]:|\s\^[\w-]+\s*$/m.test(token.raw)))return false;
  const nested=token as Token&{tokens?:Token[];items?:Token[]};
+ if(token.type==='table'){const table=token as any;return [...table.header,...table.rows.flat()].every((cell:any)=>(cell.tokens||[]).every(supportedToken));}
  return [...(nested.tokens||[]),...(nested.items||[])].every(supportedToken);
 }
 function fingerprint(node:JSONContent):string{

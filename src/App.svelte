@@ -162,11 +162,11 @@
   async function layout(id:string){menu=false;try{const positions=await runtime.layouts.get(id)!.run(structuredClone(core.data));for(const p of positions){const a=core.data.atoms.find(a=>a.id===p.id);if(!a)throw Error('Unknown atom');if(!a.pinned)await core.update(p.id,{x:p.x,y:p.y,spatial:{resistance:0}});}}catch(e){error=(e as Error).message;}}
 </script>
 <svelte:window onpointerdown={e=>{if(searchOpen&&!(e.target as Element).closest('.search'))collapseSearch();}}/>
-<svelte:head><title>Phosphorea — ваша живая карта</title></svelte:head>
+<svelte:head><title>Phosphoreya — ваша живая карта</title></svelte:head>
 <main data-navigation="idle" class:map-interacting={fieldInteracting} class:booting={!ready} class:app-ready={ready}>{#if ready}<ThemeBackdrop {camera}/>{/if}
  {#if ready&&folderProjection&&!board}
   <FolderTerritories {territories} {camera} width={view.width} height={view.height} activeId={activeFolder}/>
-  {#if !editing&&!settings&&!workspaces&&!contextId}
+  {#if !settings&&!workspaces&&!contextId}
    <FolderStrip removeIds={folderDragRemovals} drag={folderDrag} bind:this={folderStrip} folders={folderProjection.folders} selectionIds={folderSelection} bind:activeId={activeFolder} oncreate={folders.controller.create} onfocus={folders.controller.focus} onupdate={folders.controller.update} onremove={folders.controller.remove} onadd={folders.controller.add}/>
   {/if}
  {/if}
@@ -187,7 +187,7 @@
  {#if settings}{#await loadSettings()}<LoadingSurface onclose={()=>settings=false}/>{:then m}<m.default extraBuiltins={[folders.plugin,...controls,behavior,appearancePlugin,soundPlugin,animationsPlugin]} {core} {runtime} {persistent} {prefs} onclose={()=>settings=false} onpersist={persist} onnotify={notify} {updateStatus} oncheckupdate={checkUpdate} onupdate={applyUpdate} ontour={startTour} onreleases={showRelease}/>{:catch e}<LoadingSurface onclose={()=>settings=false} error={e.message}/>{/await}{/if}
  {#if activeView}<PluginView view={activeView} onclose={()=>activeView=null}/>{/if}
  {#if ready&&updateStatus.available&&!updateStatus.deferredUntil&&!editing&&!settings&&!workspaces&&!contextId&&!menu&&!touring&&!devicesOpen&&!releaseOpen&&!activeView&&!branch.length}
- <aside class="update-prompt" aria-label="Обновление приложения"><div class="update-copy"><strong>Phosphorea стала лучше</strong><span>Новая версия готова. Выберите удобный момент.</span></div><div class="update-actions"><button class="update-later" onclick={()=>updates?.postpone()}>Позже</button><button class="update-now" onclick={applyUpdate}>Обновить</button></div></aside>{/if}
+ <aside class="update-prompt" aria-label="Обновление приложения"><div class="update-copy"><strong>Phosphoreya стала лучше</strong><span>Новая версия готова. Выберите удобный момент.</span></div><div class="update-actions"><button class="update-later" onclick={()=>updates?.postpone()}>Позже</button><button class="update-now" onclick={applyUpdate}>Обновить</button></div></aside>{/if}
  {#if ready&&releaseOpen}{#await loadReleaseNotes()}<LoadingSurface onclose={closeRelease}/>{:then m}<m.default onclose={closeRelease} since={releaseSince} showAll={releaseHistory}/>{:catch e}<LoadingSurface onclose={closeRelease} error={e.message}/>{/await}{/if}
 {#if ready&&devicesOpen}{#await loadDeviceSync()}<LoadingSurface onclose={()=>devicesOpen=false}/>{:then m}<m.default {core} {workspaceName} invitation={pendingInvite} onclose={()=>{devicesOpen=false;pendingInvite='';}}/>{:catch e}<LoadingSurface onclose={()=>devicesOpen=false} error={e.message}/>{/await}{/if}
 {#if ready&&touring}<WelcomeTour onclose={closeTour} {prefs} types={typeList}/>{/if}

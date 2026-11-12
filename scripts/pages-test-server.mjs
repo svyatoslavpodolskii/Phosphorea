@@ -7,7 +7,7 @@ const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.wasm
 createServer(async(req,res)=>{
  try{
   let path=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
-  for(const prefix of ['/Different-Repo','/Phosphora','/Phosphorea']){
+  for(const prefix of ['/Different-Repo','/Phosphora','/Phosphorea','/Phosphoreya']){
    if(path===prefix){res.writeHead(301,{Location:prefix+'/'});res.end();return;}
    if(path.startsWith(prefix+'/')){path=path.slice(prefix.length);break;}
   }

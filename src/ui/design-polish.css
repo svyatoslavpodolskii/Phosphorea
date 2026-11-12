@@ -57,3 +57,11 @@ header .sync-trigger{display:grid;place-items:center;flex:none;width:40px;height
  .note-scrim{justify-content:center}.note-scrim>.note-editor:not(.expanded){width:min(920px,calc(100vw - 64px));height:calc(100dvh - 64px);padding:24px clamp(24px,4vw,56px)}.note-editor .note-content{height:clamp(300px,52dvh,700px)}.note-editor .rich-text{min-height:300px;max-height:none}
 }
 @media(max-width:650px){header{gap:4px}}@media(max-width:360px){header .workspace-switch{width:44px;max-width:44px}header .workspace-switch>span:nth-child(2){display:none}}
+
+/* Keep scrolling inside the sheet's rounded frame, with a fixed action row. */
+.note-scrim .note-editor{overflow:hidden;min-height:0}
+.note-scrim .note-editor .note-fields{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;padding-right:8px;scrollbar-gutter:stable}
+.note-scrim .note-editor .note-content{flex:1 0 240px;resize:none;max-width:100%;min-height:240px}
+.note-scrim .note-editor .editor-draft-status{flex:none}
+main{--folder-strip-top:84px}
+@media(max-width:650px){main{--folder-strip-top:78px}.note-scrim .note-editor .note-content{min-height:180px;flex-basis:180px}}

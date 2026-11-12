@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="300" viewBox="0 0 1000 300" role="img" aria-labelledby="title desc">
-<title id="title">Phosphorea</title><desc id="desc">Место, где мысли находят связь</desc>
+<title id="title">Phosphoreya</title><desc id="desc">Место, где мысли находят связь</desc>
 <rect width="1000" height="300" rx="28" fill="#101113"/>
 <g transform="translate(147 54)" stroke="#f4f4f4" stroke-width="5" stroke-linejoin="round"><path d="M0 128 70 23 141 125Z" fill="none"/><circle cx="70" cy="23" r="22" fill="#f4f4f4"/><circle cy="128" r="15" fill="#101113"/><circle cx="141" cy="125" r="18" fill="#101113"/></g>
-<text x="352" y="145" font-family="Segoe UI,Arial,sans-serif" font-size="76" font-weight="600" fill="#f4f4f4" letter-spacing="-3">Phosphorea</text>
+<text x="352" y="145" font-family="Segoe UI,Arial,sans-serif" font-size="76" font-weight="600" fill="#f4f4f4" letter-spacing="-3">Phosphoreya</text>
 <text x="355" y="198" font-family="Segoe UI,Arial,sans-serif" font-size="27" fill="#a9adb4">Место, где мысли находят связь</text>
 </svg>

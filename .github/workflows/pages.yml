@@ -3,6 +3,8 @@ on:
   push:
     branches: [main, master]
   workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
 permissions:
   contents: read
 concurrency:
@@ -10,9 +12,15 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
+    if: github.event_name != 'schedule' || github.event.repository.name == 'Phosphorea'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Installed PWAs keep their original scope. The compatibility site
+          # follows the canonical source without moving users' local databases.
+          repository: ${{ github.event.repository.name == 'Phosphorea' && 'svyatoslavpodolskii/Phosphoreya' || github.repository }}
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -1,8 +1,8 @@
-<p align="center"><img src="docs/assets/brand.svg" width="620" alt="Phosphorea — место, где мысли находят связь"></p>
+<p align="center"><img src="docs/assets/brand.svg" width="620" alt="Phosphoreya — место, где мысли находят связь"></p>
 
 <p align="center">Личная карта заметок, людей, проектов и задач.<br>На телефоне и компьютере. Бесплатно, без регистрации.</p>
 
-<p align="center"><a href="https://svyatoslavpodolskii.github.io/Phosphorea/"><strong>Открыть Phosphorea →</strong></a> &nbsp; · &nbsp; <a href="docs/README.md">Как пользоваться</a></p>
+<p align="center"><a href="https://svyatoslavpodolskii.github.io/Phosphoreya/"><strong>Открыть Phosphoreya →</strong></a> &nbsp; · &nbsp; <a href="docs/README.md">Как пользоваться</a></p>
 
 https://github.com/user-attachments/assets/2b728992-ea2e-4dbc-b9ea-6eaef3f232b1
 

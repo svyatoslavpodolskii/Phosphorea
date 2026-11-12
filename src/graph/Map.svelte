@@ -6,7 +6,8 @@
  import {RasterCache} from './raster-cache';
  const rasterCache=new RasterCache();
  import {LabelCollisions} from './label-collision';
- import {edgeCurve} from './edge-curve';
+ import {EdgeCurves} from './edge-curve';
+ const edgeCurves=new EdgeCurves();
  import RelationshipLayer from '../ui/RelationshipLayer.svelte';
  import {pickLink} from './relationships';
  import {dragLinkTarget,dwellLink,linkReady,linkedPair,LINK_DWELL_MS,type LinkDwell} from './drag-link';
@@ -136,7 +137,7 @@
    const skeleton=inBranch.has(l.from)&&inBranch.has(l.to),alpha=Math.round(l.opacity*Math.max(ambient?.4:0,a.attention??1,b.attention??1)*(skeleton?1:.5)*16)/16;
    if(alpha<=0)continue;const key=Number(skeleton)+':'+alpha;let batch=edgeBatches.get(key);
    if(!accelerated&&!batch){batch={path:new Path2D(),alpha,skeleton};edgeBatches.set(key,batch);}
-   const curve=edgeCurve(a,b);if(!curve)continue;
+   const curve=edgeCurves.get(l,a,b);if(!curve)continue;
    const {ax,ay,bx,by,cx,cy}=curve;
    if(batch){batch.path.moveTo(ax,ay);batch.path.quadraticCurveTo(cx,cy,bx,by);}if(accelerated)gpuEdges.push({id:l.id,...curve,width:(skeleton?1.9:1.2)/camera.zoom,color:skeleton?palette.accent:palette.edge,alpha});
 
@@ -304,7 +305,7 @@
 <canvas data-renderer-loading={gpuStarting} data-renderer-pending={gpuStarting||Boolean(pendingGpu)} data-selection-count={lassoSelection.length} data-gesture={lassoing?'lasso':dragging?'drag':gestureActive?'touch':'idle'} data-renderer={renderBackend} data-camera-x={camera.x} data-camera-y={camera.y} data-zoom={camera.zoom} data-layout={model.arranging?'running':'idle'} data-transition={transitioning?'running':'idle'} data-visual-focus={visualFocus} data-focus={selected} data-hover={hover} data-context={painted.filter(n=>(n.attention??1)>.4).length} data-nodes={painted.filter(n=>n.opacity>.5).length} bind:this={canvas} class="map" class:gpu-active={renderBackend==='webgl'} role="application" aria-label="Карта атомов. Долгое нажатие или N для создания. Поиск для выбора, Enter для открытия, клавиши 1–4 для состояния." tabindex="0" onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={cancel} onpointerleave={leave} oncontextmenu={e=>{e.preventDefault();if(pointers.size||dragging||'pointerType' in e&&e.pointerType==='touch')return;const n=nodeAt(position(e),true);if(n){if(lassoSelection.length>1&&(n.members||[n.id]).some(id=>lassoSelection.includes(id)))onbranch(lassoSelection);else n.members?onbranch(n.members):oncontext(n.id);}}} onkeydown={e=>{adopt();if(e.key.toLowerCase()==='n'){e.preventDefault();const point=world({x:width/2,y:height/2});onselect('');oncreate(point.x,point.y);}if(selected&&e.key==='Enter'){e.preventDefault();onopen(selected);}if(selected&&['1','2','3','4'].includes(e.key)){const state=(['normal','now','paused','archived'] as AtomState[])[Number(e.key)-1];if(lassoSelection.length>1&&lassoSelection.includes(selected))onstates(lassoSelection,state);else onstate(selected,state);}if(e.key==='Escape'){cancel();activeLink='';connectFrom='';lassoSelection=[];onselect('');}if(e.key==='+'||e.key==='=')rig.zoomStep(1.2);if(e.key==='-')rig.zoomStep(1/1.2);if(e.key.startsWith('Arrow')){e.preventDefault();rig.panBy(e.key==='ArrowLeft'?60:e.key==='ArrowRight'?-60:0,e.key==='ArrowUp'?60:e.key==='ArrowDown'?-60:0);}schedule();}}></canvas>
 <div bind:this={gpuHost} class="gpu-map-host" hidden={renderBackend!=='webgl'} aria-hidden="true"></div>
 <div class="content-previews" style:opacity={gestureActive||model.arranging?0:1} style:position="fixed" style:inset="0" style:pointer-events="none" style:transform-origin="0 0" style:transform={`translate(${width/2+camera.x-(width/2+previewCamera.x)*camera.zoom/previewCamera.zoom}px,${height/2+camera.y-(height/2+previewCamera.y)*camera.zoom/previewCamera.zoom}px) scale(${camera.zoom/previewCamera.zoom})`}>{#each previews as preview (preview.id)}{#await loadPreview() then m}<m.default {preview} onheight={previewHeight}/>{:catch}{/await}{/each}</div>
-<div class="zoom-controls"><button aria-label="Приблизить" onclick={()=>{adopt();rig.zoomStep(1.25);schedule();}}>+</button><span>{Math.round(camera.zoom*100)}%</span><button aria-label="Отдалить" onclick={()=>{adopt();rig.zoomStep(.8);schedule();}}>−</button><button aria-label="К центру карты" onclick={()=>{adopt();if(!data.atoms.length){rig.set({x:0,y:0,zoom:1});oncamera();return;}frameMap();}}>⌖</button></div>
+
 {#if proposal&&proposalTarget&&!paused}
  {@const a=screenPoint(proposal.from)}{@const b=screenPoint(proposalTarget)}
  <div class="drag-link-proposal" data-ready={proposal.ready} data-target={proposal.target}>

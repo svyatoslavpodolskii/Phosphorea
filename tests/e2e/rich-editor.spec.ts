@@ -27,7 +27,8 @@ test('visual edits preserve untouched Markdown, wiki references and unsupported 
  await importMap(page,{atoms:[makeAtom({title:'Source preservation',content:original}),makeAtom({title:'Target'})],links:[]});
  await focus(page,'Source preservation');await page.getByRole('button',{name:'Обычный',exact:true}).click();
  const visual=page.getByRole('textbox',{name:'Визуальный текст',exact:true});
- await expect(visual.locator('[data-source-block]')).toHaveCount(2);
+ await expect(visual.locator('[data-source-block]')).toHaveCount(1);
+ await expect(visual.locator('table')).toHaveCount(1);
  await expect(visual.locator('[data-wiki-reference]')).toHaveText('Alias');
  await visual.locator('p').first().click();await page.keyboard.press('Home');await page.keyboard.type('Changed ');
  await page.getByRole('button',{name:'Готово',exact:true}).click();

@@ -34,6 +34,7 @@
   else if(kind==='list')chain.toggleBulletList().run();
   else if(kind==='quote')chain.toggleBlockquote().run();
   else if(kind==='code')chain.toggleCode().run();
+  else if(kind==='table')chain.insertTable({rows:3,cols:2,withHeaderRow:true}).run();
   else if(kind==='checkbox'||kind==='task'){
    if(!editor.isActive('taskItem'))chain.toggleTaskList().run();
    editor.commands.updateAttributes('taskItem',{noteTask:kind==='task'});
@@ -57,7 +58,12 @@
 <!-- svelte-ignore a11y_no_static_element_interactions (Delegates native editor and wiki-link input.) -->
 <div class="rich-text note-content" bind:this={host} onclick={wiki} onkeydown={wiki}></div>
 <style>
- .rich-text{overflow:auto;border:0;border-radius:0;padding:4px 0;background:var(--theme-surface);color:var(--theme-text);resize:vertical}
+ .rich-text{overflow:auto;border:0;border-radius:0;padding:4px 0;background:var(--theme-surface);color:var(--theme-text);resize:none}
+ .rich-text :global(table){border-collapse:collapse;width:100%;table-layout:fixed;margin:12px 0}
+ .rich-text :global(th),.rich-text :global(td){border:1px solid var(--theme-border);padding:8px 10px;vertical-align:top;position:relative;min-width:60px}
+ .rich-text :global(th){background:var(--theme-surfaceAlt);font-weight:600;text-align:left}
+ .rich-text :global(.selectedCell){background:color-mix(in srgb,var(--theme-accent),transparent 85%)}
+ .rich-text :global(img){max-width:100%;height:auto;border-radius:10px}
  .rich-text:focus-within{outline:none}
  .rich-text :global(.tiptap){outline:none;min-height:100%;overflow-wrap:anywhere;white-space:pre-wrap}
  .rich-text :global(.tiptap>p:first-child){margin-top:0}

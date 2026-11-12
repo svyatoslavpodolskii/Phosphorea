@@ -22,7 +22,7 @@ export interface Hello {v:1;identity:JsonWebKey;ephemeral:JsonWebKey;nonce:strin
 export interface Invitation {v:1;peer:string;key:string;secret:string;expires:number}
 export function invitationUrl(invite:Invitation){const url=new URL(location.href);url.search='';url.hash='pair='+b64(bytes(JSON.stringify(invite)));return url.href;}
 export function parseInvitation(text:string):Invitation{
- if(text.length>3000)throw Error('Ссылка слишком длинная.');let url:URL;try{url=new URL(text);}catch{throw Error('Вставьте ссылку подключения из Phosphorea.');}
+ if(text.length>3000)throw Error('Ссылка слишком длинная.');let url:URL;try{url=new URL(text);}catch{throw Error('Вставьте ссылку подключения из Phosphoreya.');}
  const encoded=new URLSearchParams(url.hash.slice(1)).get('pair');if(!encoded)throw Error('В ссылке нет кода подключения.');
  let i:Invitation;try{i=JSON.parse(new TextDecoder().decode(unb64(encoded))) as Invitation;}catch{throw Error('Код подключения повреждён. Покажите новый QR.');}
  if(!i||i.v!==1||typeof i.key!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(i.key)||i.peer!==peerId(i.key)||typeof i.secret!=='string'||unb64(i.secret).length!==32||!Number.isFinite(i.expires)||i.expires<Date.now()||i.expires>Date.now()+11*60_000)throw Error('Код истёк или повреждён. Покажите новый QR.');return i;

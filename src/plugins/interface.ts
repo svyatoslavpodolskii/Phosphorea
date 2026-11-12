@@ -1,6 +1,6 @@
 import type {Plugin,SettingField} from './api';
 import {validSettingValue} from './api';
-export interface ZoomControls {side:'left'|'right'|'bottom';feedback:boolean;style?:'slider'|'wheel'}
+export interface ZoomControls {side:'left'|'right'|'bottom';feedback:boolean;style?:'slider'|'wheel'|'buttons'}
 export interface BoardControls {scale:number;gap:number}
 function controlPlugin<T>(id:string,name:string,description:string,fields:SettingField[],changed:(value:T|null)=>void):Plugin{
  return {manifest:{id,name,description,version:'1.0.0',apiVersion:1,permissions:['settings'],settings:fields},async activate(api){let alive=true,revision=0;
@@ -12,7 +12,7 @@ function controlPlugin<T>(id:string,name:string,description:string,fields:Settin
 export function interfacePlugins(zoom:(value:ZoomControls|null)=>void,board:(value:BoardControls|null)=>void){return[
  controlPlugin<ZoomControls>('builtin.zoom','Кинетичный зум','Управление одной рукой. Ненавязчивый ползунок с откликом на масштаб и границы.',[
   {key:'side',label:'Расположение зума',type:'select',default:'right',options:[{value:'right',label:'Справа'},{value:'left',label:'Слева'},{value:'bottom',label:'Снизу'}]},
-  {key:'style',label:'Управление зумом',type:'select',default:'wheel',options:[{value:'slider',label:'Ползунок'},{value:'wheel',label:'Крутилка'}]},
+  {key:'style',label:'Управление зумом',type:'select',default:'wheel',options:[{value:'slider',label:'Ползунок'},{value:'wheel',label:'Крутилка'},{value:'buttons',label:'Кнопки + / −'}]},
   {key:'feedback',label:'Тактильный отклик',type:'boolean',default:true},
  ],zoom),
  controlPlugin<BoardControls>('builtin.kanban','Канбан','Задачи из заметок, компактное представление и повторения.',[

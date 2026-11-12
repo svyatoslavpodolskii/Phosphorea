@@ -1,6 +1,6 @@
 # Начать за минуту
 
-[← Все инструкции](README.md) · [Открыть Phosphorea →](https://svyatoslavpodolskii.github.io/Phosphorea/)
+[← Все инструкции](README.md) · [Открыть Phosphoreya →](https://svyatoslavpodolskii.github.io/Phosphoreya/)
 
 Ничего скачивать с GitHub не нужно. Откройте приложение в обычном браузере,
 дождитесь карты и попробуйте три действия:
@@ -101,7 +101,7 @@
 <summary><strong>Mac · Safari</strong></summary>
 
 На macOS Sonoma 14 и новее откройте приложение в Safari и выберите
-**Файл → Добавить в Dock**. Подтвердите имя Phosphorea.
+**Файл → Добавить в Dock**. Подтвердите имя Phosphoreya.
 
 [Справка Safari](https://support.apple.com/en-us/104996).
 

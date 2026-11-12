@@ -2,11 +2,14 @@
 
 Основной репозиторий и адрес:
 
-- https://github.com/svyatoslavpodolskii/Phosphorea
-- https://svyatoslavpodolskii.github.io/Phosphorea/
+- https://github.com/svyatoslavpodolskii/Phosphoreya
+- https://svyatoslavpodolskii.github.io/Phosphoreya/
 
-Прежний Pages-сайт `Phosphora` отключён после сохранения резервной копии владельцем.
-Публикуйте только основной репозиторий:
+Прежний репозиторий `Phosphora` удалён по просьбе владельца; его история входит
+в основной проект. `Phosphorea` остаётся совместимым адресом установленных PWA.
+Его workflow собирает исходники из основного `Phosphoreya`, проверяя их раз в час.
+Для немедленного обновления старого адреса запустите его workflow вручную.
+Публикуйте изменения в основной репозиторий:
 
 ```sh
 git push origin main

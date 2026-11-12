@@ -14,6 +14,21 @@ test('desktop shortcut opens centred search; editor is spacious and centred',asy
  await page.screenshot({path:'artifacts/centred-editor.png',animations:'disabled'});
  await page.getByRole('button',{name:'Готово',exact:true}).click();await page.keyboard.press('Control+k');await page.keyboard.press('Escape');await expect(page.locator('.search-open')).toHaveCount(0);
 });
+test('editor remembers expansion, contains its scroll and edits Markdown tables',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});await page.goto('/');
+ await importMap(page,{atoms:[makeAtom({title:'Table note',content:'| Name | Value |\n| --- | --- |\n| Original | 42 |\n\n'+('Paragraph\n\n'.repeat(60))})],links:[]});
+ await expect(page.locator('.zoom-controls')).toHaveCount(0);await expect(page.locator('.zoom-control')).toHaveCount(1);
+ await focus(page,'Table note');await page.getByRole('button',{name:'Развернуть редактор',exact:true}).click();
+ const table=page.locator('.rich-text table');await expect(table).toBeVisible();await table.locator('td').first().click();await page.keyboard.type('Edited ');
+ const fields=page.locator('.note-fields');await fields.evaluate(el=>el.scrollTop=el.scrollHeight);
+ const outer=(await page.locator('.note-editor').boundingBox())!,inner=(await fields.boundingBox())!;
+ expect(inner.y).toBeGreaterThan(outer.y);expect(inner.y+inner.height).toBeLessThan(outer.y+outer.height);
+ await page.screenshot({path:'artifacts/editor-contained-scroll.png',animations:'disabled'});
+ await page.getByRole('button',{name:'Готово',exact:true}).click();await focus(page,'Table note');
+ await expect(page.locator('.note-editor')).toHaveClass(/expanded/);await expect(table).toContainText('Edited');
+ await page.getByRole('button',{name:'Готово',exact:true}).click();await page.reload();await focus(page,'Table note');await expect(page.locator('.note-editor')).toHaveClass(/expanded/);
+});
+
 test('interactive learning uses real editing and never writes practice thoughts into the diary',async({page})=>{
  await page.setViewportSize({width:1280,height:900});await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'My private note',content:'Keep me',pinned:true})],links:[]});
  await openSettings(page);await page.getByRole('button',{name:'Тур по карте',exact:true}).click();await page.getByRole('button',{name:'Попробовать',exact:true}).click();
