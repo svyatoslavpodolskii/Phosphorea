@@ -1,9 +1,28 @@
 import {test,expect} from '@playwright/test';
 import {openSettings,closeSettings,importMap,readMap,focus,sourceText} from './helpers';
 import {makeAtom} from '../../src/core/model';
+import {FOLDER_DEFINITIONS,FOLDER_MEMBERSHIP} from '../../src/graph/folders';
+
+test('soft lenses retain archived notes while folder contours follow foreground content',async({page})=>{
+ await page.goto('/');const a=makeAtom({id:'normal-root',title:'Work',pinned:true,properties:{[FOLDER_DEFINITIONS]:[{id:'work',name:'Work',color:'#75aee8',roots:['normal-root']}]}}),b=makeAtom({id:'archived-member',title:'Archived work',pinned:true,x:180,state:'archived',properties:{[FOLDER_MEMBERSHIP]:{work:1}}}),c=makeAtom({id:'archive-root',title:'Old diary',pinned:true,x:-180,state:'archived',properties:{[FOLDER_DEFINITIONS]:[{id:'old',name:'Old',color:'#b398dd',roots:['archive-root']}]}});
+ await importMap(page,{atoms:[a,b,c],links:[]});await expect(page.locator('canvas.map')).toHaveAttribute('data-nodes','3');await expect(page.locator('.folder-territories path')).toHaveCount(1);
+ await page.screenshot({path:'artifacts/folders-layout097.png',animations:'disabled'});
+ await page.locator('footer nav').getByRole('button',{name:'Архив',exact:true}).click();await expect(page.locator('canvas.map')).toHaveAttribute('data-nodes','3');await expect(page.locator('.folder-territories path')).toHaveCount(2);
+ await page.locator('footer nav').getByRole('button',{name:'Сейчас',exact:true}).click();await expect(page.locator('canvas.map')).toHaveAttribute('data-nodes','3');await expect(page.locator('.folder-territories path')).toHaveCount(0);
+ await page.getByRole('button',{name:'Old 1',exact:true}).click();await expect(page.locator('footer nav').getByRole('button',{name:'Архив',exact:true})).toHaveAttribute('aria-pressed','true');
+});
 test('workspace tools initialise without reactive errors',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>{errors.push(e.stack||e.message);console.log('PAGE ERROR',e.stack);});page.on('console',m=>{if(m.type()==='error')console.log('CONSOLE',m.text());});
  await page.goto('/');await expect(page.locator('main')).toHaveClass(/app-ready/);await openSettings(page);await expect(page.getByRole('button',{name:'Что нового',exact:true})).toBeVisible();expect(errors).toEqual([]);
+});
+
+test('mobile search is centred and thumb reachable; double tapping the wheel restores overview',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Mobile thought'})],links:[]});
+ const trigger=page.getByRole('button',{name:'Открыть поиск',exact:true});expect((await trigger.boundingBox())!.y).toBeGreaterThan(500);await trigger.click();
+ const box=(await page.locator('.search-open').boundingBox())!;expect(Math.abs(box.x+box.width/2-195)).toBeLessThan(1);
+ await expect(page.getByRole('textbox',{name:'Поиск',exact:true})).toBeFocused();await expect(page.getByRole('button',{name:'Меню карты',exact:true})).toBeHidden();
+ await page.screenshot({path:'artifacts/mobile-search-097.png',animations:'disabled'});await page.getByRole('button',{name:'Закрыть поиск',exact:true}).click();
+ const wheel=page.locator('.rotary');await wheel.press('End');await expect(wheel).toHaveAttribute('aria-valuenow','100');await wheel.dblclick();await expect.poll(async()=>Number(await wheel.getAttribute('aria-valuenow'))).toBeLessThan(2);
 });
 test('desktop shortcut opens centred search; editor is spacious and centred',async({page})=>{
  await page.setViewportSize({width:1440,height:900});await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Find this thought',pinned:true})],links:[]});
@@ -13,6 +32,23 @@ test('desktop shortcut opens centred search; editor is spacious and centred',asy
  await expect(page.getByRole('dialog',{name:'Редактор атома'})).toBeVisible();const box=(await page.locator('.note-editor').boundingBox())!;expect(box.width).toBeGreaterThan(850);expect(Math.abs(box.x+box.width/2-720)).toBeLessThan(3);
  await page.screenshot({path:'artifacts/centred-editor.png',animations:'disabled'});
  await page.getByRole('button',{name:'Готово',exact:true}).click();await page.keyboard.press('Control+k');await page.keyboard.press('Escape');await expect(page.locator('.search-open')).toHaveCount(0);
+});
+
+test('search exits in place before its compact button returns',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await page.setViewportSize({width:1440,height:900});await page.goto('/');await expect(page.locator('main')).toHaveClass(/app-ready/);
+ await page.keyboard.press('Control+k');const before=(await page.locator('.search-open').boundingBox())!;await page.getByRole('button',{name:'Закрыть поиск',exact:true}).click();
+ const closing=page.locator('.search-closing');await expect(closing).toHaveCount(1);const box=(await closing.boundingBox())!;expect(Math.abs(box.x+box.width/2-before.x-before.width/2)).toBeLessThan(2);
+ await expect(closing).toHaveCount(0);await page.keyboard.press('Control+k');await expect(page.getByRole('textbox',{name:'Поиск',exact:true})).toBeFocused();
+});
+
+test('a touch pinch flick continues beyond the released scale and a new touch grabs it',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await page.setViewportSize({width:390,height:844});await page.goto('/');await importMap(page,{atoms:[makeAtom({title:'Kinetic',pinned:true})],links:[]});
+ const map=page.locator('canvas.map');await expect(map).toHaveAttribute('data-transition','idle');const initial=Number(await map.getAttribute('data-zoom')),cdp=await page.context().newCDPSession(page);
+ const points=(distance:number)=>[{x:195-distance/2,y:350,id:1},{x:195+distance/2,y:350,id:2}];
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:points(100)});
+ for(let i=1;i<=6;i++){await page.waitForTimeout(16);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:points(100+i*5)});}
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await expect.poll(async()=>Number(await map.getAttribute('data-zoom'))).toBeGreaterThan(initial*1.3*1.05);
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:80,y:300,id:3}]});await page.waitForTimeout(40);const stopped=Number(await map.getAttribute('data-zoom'));await page.waitForTimeout(100);expect(Number(await map.getAttribute('data-zoom'))).toBeCloseTo(stopped,4);await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
 });
 test('editor remembers expansion, contains its scroll and edits Markdown tables',async({page})=>{
  await page.setViewportSize({width:1440,height:900});await page.goto('/');
@@ -26,7 +62,7 @@ test('editor remembers expansion, contains its scroll and edits Markdown tables'
  await page.screenshot({path:'artifacts/editor-contained-scroll.png',animations:'disabled'});
  await page.getByRole('button',{name:'Готово',exact:true}).click();await focus(page,'Table note');
  await expect(page.locator('.note-editor')).toHaveClass(/expanded/);await expect(table).toContainText('Edited');
- await page.getByRole('button',{name:'Готово',exact:true}).click();await page.reload();await focus(page,'Table note');await expect(page.locator('.note-editor')).toHaveClass(/expanded/);
+ await page.getByRole('button',{name:'Готово',exact:true}).click();await expect(page.locator('.note-editor')).toHaveCount(0);await page.waitForFunction(()=>!history.state?.phosphoraSurface);await page.reload();await focus(page,'Table note');await expect(page.locator('.note-editor')).toHaveClass(/expanded/);
 });
 
 test('interactive learning uses real editing and never writes practice thoughts into the diary',async({page})=>{

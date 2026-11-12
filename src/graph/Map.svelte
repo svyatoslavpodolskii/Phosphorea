@@ -6,8 +6,11 @@
  import {RasterCache} from './raster-cache';
  const rasterCache=new RasterCache();
  import {LabelCollisions} from './label-collision';
+ import {lensFocus} from './lens';
+ import {tapZoom} from './tap-zoom';
  import {EdgeCurves} from './edge-curve';
  const edgeCurves=new EdgeCurves();
+ let contextSource:unknown,contextOriginal:unknown,contextMissing:Link[]=[];
  import RelationshipLayer from '../ui/RelationshipLayer.svelte';
  import {pickLink} from './relationships';
  import {dragLinkTarget,dwellLink,linkReady,linkedPair,LINK_DWELL_MS,type LinkDwell} from './drag-link';
@@ -53,13 +56,13 @@
  let {physicsEnabled=true,zoomOptions=null,data,selected='',lens='all',camera=$bindable({x:0,y:0,zoom:1}),providers,prefs,providerVersion,paused=false,onselect,onselection=()=>{},onfolderdrag=()=>{},onfolderdrop=async()=>{},onopen,oncontext,onbranch,oncreate,onpositions,onstate,onstates,onlinkchange,oncamera,onhover=()=>{},onviewport=()=>{},revealRequest=null,connectRequest=null,preservePositions=false,oninteraction=()=>{},onerror}: {physicsEnabled?:boolean;zoomOptions?:ZoomControls|null;data:Snapshot;selected:string;lens:string;camera:Camera;providers:GraphProviders;prefs:Preferences;providerVersion:number;paused:boolean;onselect:(id:string)=>void;onselection?:(ids:string[])=>void;onfolderdrop?:(folder:string,ids:string[])=>Promise<void>;onfolderdrag?:(value:{ids:string[];target:string|null}|null)=>void;onopen:(id:string,section?:string)=>void;oncontext:(id:string)=>void;onbranch:(ids:string[])=>void;oncreate:(x:number,y:number)=>void;onpositions:(positions:PositionUpdate[],manual:boolean)=>Promise<void>;onstate:(id:string,state:AtomState)=>void;onstates:(ids:string[],state:AtomState|'delete'|'pin'|'unpin')=>Promise<unknown>;onlinkchange:(before:Link|null,after:Link|null)=>Promise<void>;oncamera:()=>void;onhover?:(id:string)=>void;onviewport?:(size:{width:number;height:number})=>void;revealRequest?:{id:string;nonce:number;point?:Point;zoom?:number}|null;preservePositions?:boolean;connectRequest?:{id:string;nonce:number}|null;oninteraction?:(active:boolean)=>void;onerror:(e:Error)=>void}=$props();
  $effect(()=>{if(connectRequest)connectFrom=connectRequest.id;});
  $effect(()=>oninteraction(dragging||lassoing));
- let touchFeedback=$state<{x:number;y:number;id:number;held:boolean}|null>(null);let feedbackTimer:ReturnType<typeof setTimeout>;let feedbackId=0;let scopeCamera:Camera|null=null;let folderCamera:Camera|null=null;let lastEmptyTap={x:0,y:0,time:-Infinity};
+ let touchFeedback=$state<{x:number;y:number;id:number;held:boolean}|null>(null);let feedbackTimer:ReturnType<typeof setTimeout>;let feedbackId=0;let scopeCamera:Camera|null=null;let folderCamera:Camera|null=null;let lastTapZoomAt=-Infinity,lastTapZoom=0;let lastEmptyTap={x:0,y:0,time:-Infinity};
  let structureSeen=false,currentStructure:string|undefined,frameStructure=false;
  $effect(()=>{const mode=prefs.graphModel;if(structureSeen&&mode!==currentStructure)frameStructure=true;currentStructure=mode;structureSeen=true;});
  let fitCache:{nodes:GraphNode[];width:number;height:number;camera:Camera}|undefined;
  function fitted(ids?:string[]){const source=model.expanded?.nodes||model.nodes;if(!ids&&!moving&&fitCache?.nodes===source&&fitCache.width===width&&fitCache.height===height)return fitCache.camera;const allowed=ids?new Set(ids):null;let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;for(const node of source){if(allowed&&!allowed.has(node.id))continue;minX=Math.min(minX,node.x-node.radius-20);maxX=Math.max(maxX,node.x+node.radius+20);minY=Math.min(minY,node.y-node.radius-15);maxY=Math.max(maxY,node.y+node.radius+55);}const value=Number.isFinite(minX)?fitCamera({minX,maxX,minY,maxY},{width,height}):{x:0,y:0,zoom:1};if(!ids&&!moving)fitCache={nodes:source,width,height,camera:value};return value;}
 
- function frameMap(onlyOutside=false){const target=fitted();if(onlyOutside&&target.zoom>=camera.zoom)return;scopeCamera=null;rig.retarget(target);schedule();}
+ function frameMap(onlyOutside=false){lastTapZoomAt=-Infinity;const target=fitted();if(onlyOutside&&target.zoom>=camera.zoom)return;scopeCamera=null;rig.retarget(target);schedule();}
  function zoomSlider(value:number){adopt();const all=fitted(),min=all.zoom,zoom=Math.exp(Math.log(min)+(Math.log(MAX_ZOOM)-Math.log(min))*value/100);if(value===0)rig.retarget(all);else rig.zoomTo({x:width/2,y:height/2},zoom);schedule();}
  const sliderValue=()=>Math.max(0,Math.min(100,100*Math.log(camera.zoom/fitted().zoom)/Math.log(MAX_ZOOM/fitted().zoom)));
  // A focus request arrives from outside, but the camera is still ours to animate.
@@ -83,6 +86,7 @@
   const invalidatePalette=()=>{rasterCache.clear();gpu?.invalidate();paletteCache=null;inkCache.clear();clearSprites();schedule();};
  let visualSource:PaintedNode[]|undefined;let priorityNodes:PaintedNode[]=[];
  const atomStates=$derived(new Map(data.atoms.map(a=>[a.id,a.paused?'paused':a.state])));
+ const linkIds=$derived(new Set(data.links.map(link=>link.id)));
  const scene=new SemanticScene();const satelliteCache=new Map<string,{id:string;x:number;y:number;color:string}>();const displayed=new Map<string,PaintedNode>();
  let gpuHost:HTMLDivElement;let gpu=$state.raw<GpuMapRenderer|null>(null);let gpuFailed=$state(false);let renderBackend=$state('canvas');let rendererSettled=true;let pendingGpu=$state.raw<GpuMapRenderer|null>(null);let gpuStarting=$state(true);let firstMap=false;let driftTime=0;
  let overlayDirty=false;let drawingContext:CanvasRenderingContext2D|null=null;
@@ -115,7 +119,7 @@
   const ctx=drawingContext??(drawingContext=canvas.getContext('2d')!);const palette=readPalette();/* Software fallback quality follows scene size, never pointer state. */const dpr=Math.min(devicePixelRatio,2)*(data.atoms.length>250&&(!gpu?.available||gpuFailed)?.75:1);if(canvas.width!==Math.round(width*dpr)||canvas.height!==Math.round(height*dpr)){canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);}
   const nodes=displayed;const visible=(n:{x:number;y:number})=>{const x=width/2+camera.x+n.x*camera.zoom,y=height/2+camera.y+n.y*camera.zoom;return x>-200&&x<width+200&&y>-100&&y<height+100;};
   const ordered=priorityNodes.filter(visible),attention=visualAttention(ordered,camera,{width,height},selected,now-recentAt<3000?recent:'',focal);visualFocus=attention.focus;for(const node of ordered)node.attention=attention.scores.get(node.id)??.4;
-  const ambient=providers.hasTool('ambient-lens')&&lens!=='all',states=atomStates,selectedIds=new Set(lassoSelection);const branch=model.branch||[],inBranch=new Set(branch);
+  const ambient=providers.hasTool('ambient-lens'),states=atomStates,selectedIds=new Set(lassoSelection);const branch=model.branch||[],inBranch=new Set(branch);
   const groups=visual.nodes.filter(n=>n.members&&n.opacity>.003),grouped=new Map(groups.flatMap(n=>n.members!.map(id=>[id,n] as const)));if(groups.length){for(const p of model.satellites||[])satelliteCache.set(p.id,p);}else satelliteCache.clear();for(const id of satelliteCache.keys())if(!grouped.has(id))satelliteCache.delete(id);
   // Stable curve geometry and opacity buckets reduce draw calls without a
   // separate gesture appearance. A press must never change the whole scene.
@@ -129,8 +133,8 @@
   const edgeLabels:{id:string;text:string;x:number;y:number}[]=[];const gpuDots:GpuDot[]=[];const gpuEdges:GpuEdge[]=[];const gpuNodes:GpuNode[]=[];renderBackend=accelerated?'webgl':'canvas';
   // A lens changes emphasis, while local relationships between visible atoms
   // remain readable even when the structural provider reduces its skeleton.
-  const shownEdges=ambient?new Set(visual.links.flatMap(l=>[l.id,l.id.replace(/^(detail|cluster):/,'')])):null;
-  const localEdges=ambient?data.links.flatMap(l=>{const a=nodes.get(l.from),b=nodes.get(l.to);return !shownEdges!.has(l.id)&&a&&b&&visible(a)&&visible(b)?[{...l,opacity:.55*Math.min(a.opacity,b.opacity)}]:[];}):[];
+  if(ambient&&(contextSource!==visual.links||contextOriginal!==data.links)){contextSource=visual.links;contextOriginal=data.links;const shown=new Set(visual.links.flatMap(l=>[l.id,l.id.replace(/^(detail|cluster):/,'')]));contextMissing=data.links.filter(l=>!shown.has(l.id));}
+  const localEdges=ambient?contextMissing.flatMap(l=>{const a=nodes.get(l.from),b=nodes.get(l.to);return a&&b&&visible(a)&&visible(b)?[{...l,opacity:.55*Math.min(a.opacity,b.opacity)}]:[];}):[];
   for(const l of [...visual.links,...localEdges]){
    const na=nodes.get(l.from),nb=nodes.get(l.to);const a=na,b=nb;
    if(!a||!b||(!visible(a)&&!visible(b)))continue;
@@ -164,7 +168,7 @@
    ctx.globalAlpha=1;ctx.textAlign='center';}
    // The order below is also the priority order, so spending a decoration budget
    // in this order spends it on what the reader is actually looking at.
-   for(const original of ordered){const n=original;if(!visible(n))continue;const muted=ambient&&!(n.members||[n.id]).some(id=>states.get(id)===(lens==='now'?'now':'archived'));const opacity=(original.opacity??1)*(n.attention??1);const paintNode=(ctx:CanvasRenderingContext2D,raster=false)=>{ctx.save();ctx.textAlign='center';ctx.translate(n.x,n.y);ctx.globalAlpha=(raster?1:opacity)*(ambient&&lens==='archived'&&n.state==='archived'?1:n.state==='archived'?.35:n.state==='paused'?.6:1)*(muted?.25:1);
+   for(const original of ordered){const n=original;if(!visible(n))continue;const muted=ambient&&!(n.members||[n.id]).some(id=>lensFocus(states.get(id)||'normal',lens));const opacity=(original.opacity??1)*(n.attention??1);const paintNode=(ctx:CanvasRenderingContext2D,raster=false)=>{ctx.save();ctx.textAlign='center';ctx.translate(n.x,n.y);ctx.globalAlpha=(raster?1:opacity)*(ambient?(muted?.3:1):n.state==='archived'?.35:n.state==='paused'?.6:1);
   // Hover is the only thing the pointer may add. It never implies selection.
   if(!raster&&n.id===hover&&n.id!==selected){ctx.beginPath();ctx.arc(0,0,n.radius+5,0,Math.PI*2);ctx.strokeStyle=palette.text;ctx.lineWidth=1.2/camera.zoom;ctx.globalAlpha*=.45;ctx.stroke();ctx.globalAlpha/=.45;}
   if(!raster&&(n.state==='now'||n.id===selected||(n.members||[n.id]).some(id=>selectedIds.has(id))||holdReady&&start?.node?.id===n.id)){ctx.beginPath();ctx.arc(0,0,n.radius+8,0,Math.PI*2);ctx.strokeStyle=n.id===selected?palette.text:palette.accent;ctx.lineWidth=1.5/camera.zoom;ctx.setLineDash(n.state==='now'?[4,5]:[]);ctx.stroke();ctx.setLineDash([]);}
@@ -190,7 +194,7 @@
   if(mustHave||iconIds.has(n.id)&&iconLegible(n.radius,camera.zoom)){const size=n.members?24:22;ctx.drawImage(iconSprite(n.icon,ink,size),-size,-size,size*2,size*2);}    if(n.pinned&&prefs.pinning&&camera.zoom>.55){ctx.save();ctx.translate(n.radius-2,-n.radius-3);ctx.scale(.65,.65);ctx.rotate(.55);ctx.strokeStyle=palette.text;ctx.fillStyle=palette.background;ctx.lineWidth=1.8;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-5,-8);ctx.lineTo(5,-8);ctx.lineTo(3,-1);ctx.quadraticCurveTo(7,1,7,4);ctx.lineTo(-7,4);ctx.quadraticCurveTo(-7,1,-3,-1);ctx.closePath();ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(0,4);ctx.lineTo(0,12);ctx.stroke();ctx.restore();}
    ctx.restore();return;
   }
-  ctx.globalAlpha=opacity*(muted?.28:1);
+  ctx.globalAlpha=opacity*(muted?.3:1);
    if(!raster&&(camera.zoom>.55||!grouped.has(n.id)||n.members||n.landmark||n.radius>36||n.id===selected)){
    const {text,show}=labelLayout.get(n.id)!;
    ctx.font=text.size+'px system-ui';ctx.textBaseline='top';
@@ -204,14 +208,14 @@
   ctx.restore();};
   if(accelerated){const {text,show}=labelLayout.get(n.id)!;const labels:GpuLabel[]=[],rings:GpuRing[]=[];
    if(show){for(const [i,title] of text.lines.entries())labels.push({text:title,x:0,y:text.top+i*text.lineHeight,size:text.size,color:palette.text,background:palette.background,alpha:muted?.28:1});if(text.caption)labels.push({text:text.caption,x:0,y:text.captionTop,size:text.captionSize,color:palette.muted,alpha:muted?.28:1});}
-   const stateAlpha=(ambient&&lens==='archived'&&n.state==='archived'?1:n.state==='archived'?.35:n.state==='paused'?.6:1)*(muted?.25:1);
+   const stateAlpha=(ambient?(muted?.3:1):n.state==='archived'?.35:n.state==='paused'?.6:1);
    if(n.id===hover&&n.id!==selected)rings.push({radius:n.radius+10,color:palette.text,width:1.6/camera.zoom,alpha:stateAlpha*.45,dashed:false});
    if(n.state==='now'||n.id===selected||(n.members||[n.id]).some(id=>selectedIds.has(id))||holdReady&&start?.node?.id===n.id)rings.push({radius:n.radius+8,color:n.id===selected?palette.text:palette.accent,width:1.5/camera.zoom,alpha:stateAlpha,dashed:n.state==='now'});
    const color=muted?palette.muted:n.color==='#b4ecc1'?palette.accent:n.color,ink=inkFor(color,palette.background),mustHave=n.id===selected||n.id===hover||moving?.id===n.id;
    gpuNodes.push({id:n.id,x:n.x,y:n.y,radius:n.radius,shape:n.shape,style:n.style,color,ink,strokeWidth:palette.strong?2.6:inBranch.has(n.id)&&n.id!==selected?2.1:1.35,soft:mustHave||softIds.has(n.id),icon:n.icon,iconSize:n.members?24:22,iconVisible:mustHave||iconIds.has(n.id)&&iconLegible(n.radius,camera.zoom),pinned:Boolean(n.pinned&&prefs.pinning),pinVisible:Boolean(n.pinned&&prefs.pinning&&camera.zoom>.55),pinColor:palette.text,pinFill:palette.background,bodyAlpha:stateAlpha,alpha:opacity,labels,rings});
   }else paintNode(ctx);
   }if(worldOverlay)ctx.restore();if(accelerated){try{if(!gpu!.paint(width,height,dpr,camera,gpuEdges,gpuNodes,gpuDots,gpuEdgeLabels))schedule();}catch(error){gpuFailed=true;console.warn('GPU renderer unavailable; using Canvas',error);schedule();}}
-  if(lasso?.length){ctx.save();ctx.beginPath();ctx.moveTo(lasso[0].x,lasso[0].y);for(const p of lasso.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fillStyle=palette.accent+'18';ctx.strokeStyle=palette.text;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.fill();ctx.stroke();ctx.restore();}if(!pointers.size&&!rig.moving&&!model.arranging){previews=contentPreviews(ambient?painted.filter(n=>n.state===(lens==='now'?'now':'archived')):painted,camera,width,height,selected,previewHeights,previews);previewCamera={...camera};}
+  if(lasso?.length){ctx.save();ctx.beginPath();ctx.moveTo(lasso[0].x,lasso[0].y);for(const p of lasso.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fillStyle=palette.accent+'18';ctx.strokeStyle=palette.text;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.fill();ctx.stroke();ctx.restore();}if(!pointers.size&&!rig.moving&&!model.arranging){previews=contentPreviews(ambient?painted.filter(n=>lensFocus(n.state,lens)):painted,camera,width,height,selected,previewHeights,previews);previewCamera={...camera};}
   if(!firstMap&&(!data.atoms.length||painted.length)){firstMap=true;performance.mark('phosphora:first-map');canvas.dataset.startupMs=String(Math.round(performance.now()));}
   // The camera is recorded once it comes to rest, independently of any level of
   // detail crossfade happening at the same moment.
@@ -288,7 +292,7 @@
      else
      if(tapped?.members){const root=resolveSelection(tapped.id,painted)||tapped.members[0];onselect(root);const target=fitted(tapped.members);scopeCamera=target;rig.retarget(target);schedule();}
      else if(tapped){lassoSelection=[];onselect(tapped.id);onopen(tapped.id,start.section);}
-     else{if(!holdReady&&performance.now()-lastEmptyTap.time<320&&Math.hypot(p.x-lastEmptyTap.x,p.y-lastEmptyTap.y)<30){lastEmptyTap.time=-Infinity;if(camera.zoom>=MAX_ZOOM*.94)frameMap();else{rig.zoomAt(p,Math.min(2,MAX_ZOOM/camera.zoom));schedule();}start=null;holdReady=false;controller?.setInteracting(false);return;}lastEmptyTap={...p,time:performance.now()};candidate='';hover='';onselect('');activeLink=holdReady?'':pickLink([...(model.expanded?.links||[]),...model.links,...(providers.hasTool('ambient-lens')&&lens!=='all'?data.links:[])].filter(l=>data.links.some(original=>original.id===l.id)),painted.filter(n=>n.opacity>.3),camera,{width,height},p);if(holdReady){suppressReleaseClick=true;oncreate(start.worldX??world(start).x,start.worldY??world(start).y);}else lassoSelection=[];}}
+     else{if(!holdReady&&performance.now()-lastEmptyTap.time<320&&Math.hypot(p.x-lastEmptyTap.x,p.y-lastEmptyTap.y)<30){lastEmptyTap.time=-Infinity;const now=performance.now(),elapsed=now-lastTapZoomAt,current=elapsed<1200?Math.max(camera.zoom,lastTapZoom):camera.zoom,next=tapZoom(current,fitted().zoom,MAX_ZOOM,elapsed);if(next===null)frameMap();else{lastTapZoomAt=now;lastTapZoom=next;rig.zoomTo(p,next);schedule();}start=null;holdReady=false;controller?.setInteracting(false);return;}lastEmptyTap={...p,time:performance.now()};candidate='';hover='';onselect('');activeLink=holdReady?'':pickLink([...(model.expanded?.links||[]),...model.links,...(providers.hasTool('ambient-lens')?data.links:[])].filter(l=>linkIds.has(l.id)),painted.filter(n=>n.opacity>.3),camera,{width,height},p);if(holdReady){suppressReleaseClick=true;oncreate(start.worldX??world(start).x,start.worldY??world(start).y);}else lassoSelection=[];}}
     else if(!start.node&&!reduced&&performance.now()-panSample.time<90){rig.endPinch();rig.release(panVelocity);}}
   if(rig.gesturing)rig.endPinch();start=null;holdReady=false;moving=null;pendingDrag=false;dragging=false;candidate='';hover='';fromPinch=false;focal=undefined;controller?.setInteracting(false);schedule();}
  function cancel(){stateTray=false;stateHover='';reportFolderDrag();clearTimeout(feedbackTimer);touchFeedback=null;clearProposal();rig.halt();clearTimeout(longTimer);holdReady=false;holdStarted=Infinity;pinchStart=null;fromPinch=false;gestureActive=false;lassoing=false;lasso=null;pointers.clear();controller?.setInteracting(false);start=null;moving=null;pendingDrag=false;dragging=false;pinch=0;controller?.cancelDrag();schedule();}

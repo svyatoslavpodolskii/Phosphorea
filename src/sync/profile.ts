@@ -1,6 +1,17 @@
 import {validateManifest} from '../plugins/api';
 import {preferences} from '../core/preferences';
 export const APPEARANCE='appearance-profile';
+export type PluginSyncMode='all'|'settings'|'local';
+export function pluginSyncMode(value:unknown):PluginSyncMode{return value==='settings'||value==='local'?value:'all';}
+/** The visual opt-in is independent of the functional plugin policy. */
+export function acceptsPluginSetting(key:string,mode:PluginSyncMode,installed:Set<string>){
+ if(visualSetting(key))return true;
+ if(mode==='all')return true;
+ if(key==='disabled-builtins'||key==='community-plugins')return false;
+ if(mode==='local')return key!=='preferences'&&!key.startsWith('plugin:');
+ if(!key.startsWith('plugin:'))return true;
+ const id=key.slice(7).split(':')[0];return id.startsWith('builtin.')||installed.has(id);
+}
 /** Migration receipts are device-local, but share the same scope as plugin defaults. */
 export function profileSetting(key:string){return sharedSetting(key)||['retired-builtins-v1','map-tools-defaults-v1','plugin-defaults-v2','lasso-default-v2'].includes(key);}
 /** Device trust, filesystem bindings, backups and camera state never travel. */

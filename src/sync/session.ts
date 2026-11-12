@@ -132,6 +132,7 @@ export class SyncSession {
    const start=Date.now();while(c.dataChannel?.bufferedAmount>256000){if(!this.alive||!c.open||Date.now()-start>15000)throw Error('Соединение не успевает принимать данные.');await new Promise(r=>setTimeout(r,20));}c.send(await this.channel!.seal(msg));});this.sendQueue=next.catch(()=>{});return next;}
  async selectIncoming(ids:string[]){if(this.localConfirmed||this.status.phase!=='verify')return;if(ids.some(id=>!this.status.remoteOffered?.includes(id)))throw Error('Invalid selection');this.publish({remoteSelected:[...new Set(ids)]});}
  async setVisual(value:boolean){await this.storage.syncSetGlobal('sync:visual',value);this.schedule();}
+ async setPluginMode(value:import('./profile').PluginSyncMode){await this.storage.syncSetGlobal('sync:plugins',value);this.schedule();}
  async sync(){if(!this.authorized)return;if(this.activeRound){this.pendingRound=true;return;}if(!this.leader()){await this.send({t:'request'});return;}const id=crypto.randomUUID();await this.send({t:'round',id});await this.beginRound(id);}
  private async beginRound(id:string){this.activeRound=true;this.pendingRound=false;this.applied=false;this.acknowledged=false;this.syncId=id;await this.transmitRound();}
  private async transmitRound(){if(!this.authorized||this.sending)return;this.sending=true;this.publish({phase:'syncing',message:'Сверяем обе карты…',progress:0});this.armTransfer();

@@ -15,7 +15,7 @@ const NOTCH_SHARE=.2,STREAM_SHARE=.85,CONTINUOUS_MS=45,DISCRETE_MS=15,REFERENCE_
 /** Hard perceptual ceiling: the world may not expand or slide faster than this per
  *  frame, whatever the input asked for. Ordinary gestures never reach it, so it
  *  adds no lag, but it guarantees no single frame can ever be a visible jump. */
-const MAX_ZOOM_RATE=.13,MAX_PAN_RATE=80,COAST=70;
+const MAX_ZOOM_RATE=.13,MAX_PAN_RATE=80,COAST=120;
 
 export const clampZoom=(zoom:number)=>Math.max(MIN_ZOOM,Math.min(MAX_ZOOM,zoom));
 
@@ -58,6 +58,7 @@ export class CameraRig{
   private pinching=false;
   /** True while a finger is on the glass: the camera is the hand, one to one. */
   private direct=false;private zoomVelocity=0;
+  private coastZoom=0;private pinchSample:{time:number;log:number}|null=null;private fingerZoomVelocity=0;
   private view:Viewport={width:1,height:1};
   private reduced=false;
   moving=false;
@@ -67,10 +68,10 @@ export class CameraRig{
   constructor(clock?:()=>number){this.clock=clock||(()=>performance.now());}
 
   resize(view:Viewport){this.view=view;}
-  setReduced(reduced:boolean){this.reduced=reduced;}
+  setReduced(reduced:boolean){this.reduced=reduced;if(reduced)this.coastZoom=0;}
 
   /** Immediate placement, used for restore, resize and reduced motion only. */
-  set(camera:Camera){this.zoomVelocity=0;this.direct=false;this.retargeting=false;this.camera={...camera};this.target={...camera};this.pending.x=this.pending.y=this.pending.z=0;this.anchor=null;this.pinching=false;this.lastEvent=0;this.interval=Infinity;this.settled=true;this.moving=false;}
+  set(camera:Camera){this.coastZoom=0;this.pinchSample=null;this.zoomVelocity=0;this.direct=false;this.retargeting=false;this.camera={...camera};this.target={...camera};this.pending.x=this.pending.y=this.pending.z=0;this.anchor=null;this.pinching=false;this.lastEvent=0;this.interval=Infinity;this.settled=true;this.moving=false;}
 
   get value(){return this.camera;}
   get anchored(){return this.anchor!==null;}
@@ -80,6 +81,10 @@ export class CameraRig{
   /** Keep the original world anchor under the moving finger midpoint while
    * scale follows the gesture with the same spring as wheel and zoom controls. */
   pinchTo(screen:Point,zoom:number){
+   if(!this.pinching){this.coastZoom=0;this.fingerZoomVelocity=0;this.pinchSample=null;}
+   const now=this.clock(),log=Math.log(clampZoom(zoom)),previous=this.pinchSample;
+   if(previous){const dt=now-previous.time;if(dt>=4&&dt<=100){const velocity=Math.max(-.004,Math.min(.004,(log-previous.log)/dt));this.fingerZoomVelocity=this.fingerZoomVelocity*.35+velocity*.65;}else if(dt>100)this.fingerZoomVelocity=0;}
+   this.pinchSample={time:now,log};
    if(this.anchor)this.anchor={...this.anchor,screen};
    else this.anchor={world:screenToWorld(screen,this.camera,this.view),screen};
    this.pinching=true;this.direct=true;this.settled=false;this.moving=true;
@@ -87,17 +92,17 @@ export class CameraRig{
    this.pending.z=Math.log(this.target.zoom/this.camera.zoom);this.event();if(this.reduced)this.camera={...this.target};
   }
   /** Single finger drag: the canvas is held in the hand, so it tracks it exactly. */
-  trackTo(camera:Camera){
+  trackTo(camera:Camera){this.coastZoom=0;
    this.zoomVelocity=0;this.pending.z=0;
    this.anchor=null;this.pinching=false;this.direct=true;this.settled=false;this.moving=true;
    this.target={...camera,zoom:clampZoom(camera.zoom)};this.camera={...this.target};
   }
   /** Release the fingers, retaining their final target and anchor until settled. */
-  endPinch(){this.pinching=false;this.direct=false;this.interval=Infinity;this.pending.z=Math.log(this.target.zoom/this.camera.zoom);this.wake();}
+  endPinch(){if(this.pinching&&!this.reduced&&this.pinchSample&&this.clock()-this.pinchSample.time<80)this.coastZoom=this.fingerZoomVelocity;this.pinching=false;this.direct=false;this.interval=Infinity;this.pending.z=Math.log(this.target.zoom/this.camera.zoom);this.wake();}
 
   /** Establishes or reuses the anchor, then records the requested zoom. The world
    *  point under the pointer stays under the pointer for the whole gesture. */
-  zoomAt(screen:Point,factor:number){
+  zoomAt(screen:Point,factor:number){this.coastZoom=0;
    this.pinching=false;
    if(this.retargeting){this.target={...this.camera};this.pending.z=0;this.retargeting=false;}
    this.anchor={world:screenToWorld(screen,this.camera,this.view),screen};
@@ -113,13 +118,13 @@ export class CameraRig{
   }
   /** Absolute control zoom always keeps the presented viewport center fixed.
    * It does not blend in the overview's translation while crossing low ticks. */
-  zoomTo(screen:Point,zoom:number){
+  zoomTo(screen:Point,zoom:number){this.coastZoom=0;
    this.direct=false;this.pinching=false;this.retargeting=false;
    this.anchor={world:screenToWorld(screen,this.camera,this.view),screen};
    this.target=fromAnchor(this.anchor,clampZoom(zoom),this.view);
    this.pending.x=this.pending.y=0;this.pending.z=Math.log(this.target.zoom/this.camera.zoom);this.event();this.wake();
   }
-  panBy(dx:number,dy:number){this.retargeting=false;this.anchor=null;this.pinching=false;this.event();this.pending.x+=dx;this.pending.y+=dy;this.target={...this.target,x:this.target.x+dx,y:this.target.y+dy};this.wake();}
+  panBy(dx:number,dy:number){this.coastZoom=0;this.retargeting=false;this.anchor=null;this.pinching=false;this.event();this.pending.x+=dx;this.pending.y+=dy;this.target={...this.target,x:this.target.x+dx,y:this.target.y+dy};this.wake();}
   /** Keeps an active zoom anchor while the gesture's midpoint travels. */
   moveAnchor(dx:number,dy:number){
    if(!this.anchor)return;
@@ -129,7 +134,7 @@ export class CameraRig{
    this.wake();
   }
   /** Sets an absolute destination. Used for focus corrections and fit views. */
-  retarget(camera:Camera){
+  retarget(camera:Camera){this.coastZoom=0;
    this.retargeting=true;this.anchor=null;this.pinching=false;this.event();
    this.pending.x+=camera.x-this.target.x;this.pending.y+=camera.y-this.target.y;this.pending.z+=Math.log(camera.zoom)-Math.log(this.target.zoom);
    this.target={...camera};this.wake();
@@ -139,6 +144,7 @@ export class CameraRig{
    *  same few frames as the drag was, never as a single lurch. */
   release(velocity:Point){
    this.retargeting=false;this.interval=Infinity;this.direct=false;
+   if(this.reduced){this.wake();return;}
    if(this.anchor)return;
    const x=Math.max(-MAX_PAN_RATE*8,Math.min(MAX_PAN_RATE*8,velocity.x*COAST)),y=Math.max(-MAX_PAN_RATE*8,Math.min(MAX_PAN_RATE*8,velocity.y*COAST));
    this.pending.x+=x;this.pending.y+=y;
@@ -146,7 +152,7 @@ export class CameraRig{
    this.wake();
   }
   /** Stops all motion where it stands. Used when the user grabs the canvas. */
-  halt(){this.zoomVelocity=0;this.retargeting=false;this.direct=false;this.target={...this.camera};this.pending.x=this.pending.y=this.pending.z=0;this.anchor=null;this.pinching=false;this.settled=true;this.moving=false;}
+  halt(){this.coastZoom=0;this.pinchSample=null;this.zoomVelocity=0;this.retargeting=false;this.direct=false;this.target={...this.camera};this.pending.x=this.pending.y=this.pending.z=0;this.anchor=null;this.pinching=false;this.settled=true;this.moving=false;}
 
   /** Records that the hand produced another event, and how long since the last one. */
   private event(){
@@ -168,6 +174,7 @@ export class CameraRig{
 
   step(dt:number):Camera{
    if(this.direct&&!this.pinching)return this.camera;
+   if(this.coastZoom&&this.anchor&&!this.pinching&&!this.reduced){const decay=Math.exp(-Math.max(0,Math.min(MAX_STEP,dt))/160),zoom=clampZoom(this.target.zoom*Math.exp(this.coastZoom*160*(1-decay)));this.coastZoom*=decay;if(Math.abs(this.coastZoom)<.000015||zoom===MIN_ZOOM||zoom===MAX_ZOOM)this.coastZoom=0;this.target=fromAnchor(this.anchor,zoom,this.view);this.pending.z=Math.log(zoom/this.camera.zoom);this.settled=false;this.moving=true;}
    if(this.settled)return this.camera;
    // Pan follows input cadence; zoom has the same spring for fingers and controls.
    const span=Number.isFinite(this.interval)?this.interval:Infinity;
@@ -185,7 +192,7 @@ export class CameraRig{
     const take=this.springZoom(dt,zoomCap);
     this.pending.z-=take;
     this.camera=fromAnchor(this.anchor,Math.exp(Math.log(this.camera.zoom)+take),this.view);
-    if(Math.abs(gap)<ZOOM_EPS&&Math.abs(this.pending.z)<ZOOM_EPS&&Math.abs(this.zoomVelocity)<.02){
+    if(!this.coastZoom&&Math.abs(gap)<ZOOM_EPS&&Math.abs(this.pending.z)<ZOOM_EPS&&Math.abs(this.zoomVelocity)<.02){
      this.camera=fromAnchor(this.anchor,this.target.zoom,this.view);this.zoomVelocity=0;this.pending.z=0;this.settled=true;this.moving=false;if(!this.pinching)this.anchor=null;
     }
     return this.camera;

@@ -1,10 +1,10 @@
 <script lang="ts">
  let {value,percent,vertical=true,onvalue}:{value:number;percent:number;vertical?:boolean;onvalue:(value:number)=>void}=$props();
- let held=$state(false),draft=$state(0),start=0,origin=0,pointer=-1;
+ let held=$state(false),draft=$state(0),start=0,origin=0,pointer=-1,lastTap=-Infinity,travel=0;
  const clamp=(n:number)=>Math.max(0,Math.min(100,Math.round(n/2)*2));
- function down(e:PointerEvent){if(e.button!==0)return;pointer=e.pointerId;held=true;draft=value;origin=value;start=vertical?e.clientY:e.clientX;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);e.preventDefault();}
- function move(e:PointerEvent){if(!held||e.pointerId!==pointer)return;const delta=(vertical?start-e.clientY:e.clientX-start)/1.6,next=clamp(origin+delta);if(next!==draft){draft=next;onvalue(next);}}
- function end(e:PointerEvent){if(e.pointerId===pointer){held=false;pointer=-1;}}
+ function down(e:PointerEvent){if(e.button!==0)return;pointer=e.pointerId;held=true;travel=0;draft=value;origin=value;start=vertical?e.clientY:e.clientX;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);e.preventDefault();}
+ function move(e:PointerEvent){if(!held||e.pointerId!==pointer)return;const distance=vertical?start-e.clientY:e.clientX-start;travel=Math.max(travel,Math.abs(distance));const next=clamp(origin+distance/1.6);if(next!==draft){draft=next;onvalue(next);}}
+ function end(e:PointerEvent){if(e.pointerId===pointer){held=false;pointer=-1;if(e.type==='pointercancel'||travel>6){lastTap=-Infinity;return;}const now=performance.now();if(now-lastTap<350){lastTap=-Infinity;onvalue(0);}else lastTap=now;}}
  const shown=$derived(held?draft:value);
 </script>
 <div class="rotary" class:held class:horizontal={!vertical} role="slider" tabindex="0" aria-label="Масштаб карты" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(shown)} aria-valuetext={shown<2?'Обзор':`${percent}%`} aria-orientation={vertical?'vertical':'horizontal'} onpointerdown={down} onpointermove={move} onpointerup={end} onpointercancel={end} onkeydown={e=>{const delta=['ArrowUp','ArrowRight'].includes(e.key)?2:['ArrowDown','ArrowLeft'].includes(e.key)?-2:e.key==='PageUp'?10:e.key==='PageDown'?-10:0;if(delta||e.key==='Home'||e.key==='End'){e.preventDefault();onvalue(e.key==='Home'?0:e.key==='End'?100:clamp(value+delta));}}} onwheel={e=>{e.preventDefault();onvalue(clamp(value-Math.sign(e.deltaY)*2));}}>

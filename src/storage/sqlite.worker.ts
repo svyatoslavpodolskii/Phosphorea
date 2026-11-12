@@ -1,4 +1,4 @@
-import {sharedSetting,profileSetting,visualSetting,APPEARANCE} from '../sync/profile';
+import {sharedSetting,profileSetting,visualSetting,APPEARANCE,pluginSyncMode,acceptsPluginSetting} from '../sync/profile';
 import {restoreDatabase} from './restore';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import {migrate} from './schema';
@@ -49,11 +49,11 @@ self.onmessage=({data:{id,method,args}})=>{queue=queue.then(async()=>{
  else {if(restored)throw Error('Reload required after restore');if(!db)throw Error('База не открыта.');
  if(method==='snapshot')result=snapshot(db);
  else if(method==='syncExportProfile')result=exportRecords(rootDb).filter(r=>r.kind==='setting');
- else if(method==='syncApplyProfile'){if(!Array.isArray(args[0])||args[0].some((r:any)=>r.kind!=='setting'))throw Error('Invalid profile');for(const r of args[0])validateRecord(r);result=applyRecords(rootDb,args[0].filter((r:any)=>args[1]||!visualSetting(r.id)),transact);}
+ else if(method==='syncApplyProfile'){if(!Array.isArray(args[0])||args[0].some((r:any)=>r.kind!=='setting'))throw Error('Invalid profile');for(const r of args[0])validateRecord(r);const mode=pluginSyncMode(setting(rootDb,'sync:plugins')),installed=new Set<string>((setting(rootDb,'community-plugins')||[]).map((p:any)=>p.manifest.id));result=applyRecords(rootDb,args[0].filter((r:any)=>(args[1]||!visualSetting(r.id))&&acceptsPluginSetting(r.id,mode,installed)),transact);}
  else if(method==='syncWorkspaces')result=await syncWorkspaces();
  else if(method==='syncExportWorkspaces'){const all=await syncWorkspaces();if(!Array.isArray(args[0])||args[0].some((id:string)=>!all.some(w=>w.id===id)))throw Error('Хранилище не найдено.');result=[];for(const w of all.filter(w=>args[0].includes(w.id)))result.push({...w,records:exportRecords(await workspaceDb(w.id)).filter(r=>r.kind!=='setting'&&r.kind!=='catalog')});}
  else if(method==='syncApplyWorkspaces')result=await syncApplyWorkspaces(args[0],args[1],args[2]);
- else if(method==='syncGetGlobal'||method==='syncSetGlobal'){if(typeof args[0]!=='string'||!/^sync:(trusted:|device-name$|visual$)/.test(args[0]))throw Error('Неверный ключ устройства.');result=method==='syncGetGlobal'?setting(rootDb,args[0]):setting(rootDb,args[0],args[1]);}
+ else if(method==='syncGetGlobal'||method==='syncSetGlobal'){if(typeof args[0]!=='string'||!/^sync:(trusted:|device-name$|visual$|plugins$)/.test(args[0]))throw Error('Неверный ключ устройства.');result=method==='syncGetGlobal'?setting(rootDb,args[0]):setting(rootDb,args[0],args[1]);}
  else if(method==='syncExport')result=exportRecords(db);
  else if(method==='syncApply')result=applyRecords(db,args[0],transact);
  else if(method==='syncConflicts')result=[...conflicts(db).filter(r=>r.kind==='atom'||r.kind==='link'),...conflicts(rootDb).filter(r=>r.kind==='setting')];

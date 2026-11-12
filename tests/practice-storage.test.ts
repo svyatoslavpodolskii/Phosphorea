@@ -11,5 +11,5 @@ it('keeps practice drafts isolated and rolls back invalid transactions',async()=
  first.close();expect((await first.snapshot()).atoms).toEqual([]);expect(await first.getSetting('editor-checkpoint-v1')).toBeUndefined();
 });
 it('lists every missed release using numeric version order',()=>{
- expect(releasesSince('0.9.3').map(r=>r.version)).toEqual(['0.9.6','0.9.5','0.9.4']);expect(releasesSince('0.9.6')).toEqual([]);expect(releasesSince('0.10.0')).toEqual([]);expect(releasesSince(null).length).toBeGreaterThan(1);
+ expect(releasesSince('0.9.3').map(r=>r.version)).toEqual(['0.9.7','0.9.6','0.9.5','0.9.4']);expect(releasesSince('0.9.7')).toEqual([]);expect(releasesSince('0.10.0')).toEqual([]);expect(releasesSince(null).length).toBeGreaterThan(1);
 });

@@ -33,7 +33,14 @@ test('persistent bilateral sync keeps workspaces and coordinates, shares plugins
  const phoneTheme=await pb.locator('html').getAttribute('data-theme');
  await openSettings(pa);await pa.getByRole('button',{name:'Плагины →',exact:true}).click();await pa.locator('.plugin-row').filter({hasText:'Темы и атмосфера'}).getByRole('button',{name:'Настройки',exact:true}).click();await pa.getByRole('button',{name:'Светлая',exact:true}).click();await closeSettings(pa);
  await pa.waitForTimeout(2500);expect(await pb.locator('html').getAttribute('data-theme')).toBe(phoneTheme);
- await sync(pb);await pb.getByLabel('Синхронизировать оформление').check();await pb.getByRole('button',{name:'Закрыть синхронизацию'}).click();
+ await sync(pb);await pb.locator('.sync-preferences summary').click();await pb.getByLabel('Синхронизировать оформление').check();await pb.getByRole('button',{name:'Закрыть синхронизацию'}).click();
  await expect.poll(()=>pb.locator('html').getAttribute('data-theme'),{timeout:20000}).toBe(await pa.locator('html').getAttribute('data-theme'));
+ await sync(pb);await pb.locator('.sync-preferences summary').click();await pb.getByRole('combobox',{name:'Получать плагины на это устройство'}).click();await pb.getByRole('option',{name:'Свои плагины',exact:true}).click();await pb.getByRole('button',{name:'Закрыть синхронизацию'}).click();
+ await openSettings(pa);await pa.getByRole('button',{name:'Плагины →',exact:true}).click();await pa.locator('.plugin-row').filter({hasText:'Волшебное лассо'}).getByRole('button',{name:'Включить',exact:true}).click();await closeSettings(pa);
+ await focus(pa,'Laptop note');await pa.getByRole('button',{name:'Markdown',exact:true}).click();await pa.getByRole('textbox',{name:'Текст',exact:true}).fill('Notes still sync with local plugins');await pa.getByRole('button',{name:'Готово',exact:true}).click();
+ await expect.poll(async()=>(await readMap(pb)).atoms[0]?.content,{timeout:20000}).toBe('Notes still sync with local plugins');
+ await openSettings(pb);await pb.getByRole('button',{name:'Плагины →',exact:true}).click();await expect(pb.locator('.plugin-row').filter({hasText:'Волшебное лассо'}).getByRole('button',{name:'Включить',exact:true})).toBeVisible();await closeSettings(pb);
+ await sync(pb);await pb.locator('.sync-preferences summary').click();await pb.getByRole('combobox',{name:'Получать плагины на это устройство'}).click();await pb.getByRole('option',{name:'Плагины и настройки',exact:true}).click();await pb.getByRole('button',{name:'Закрыть синхронизацию'}).click();
+ await expect.poll(async()=>{await openSettings(pb);await pb.getByRole('button',{name:'Плагины →',exact:true}).click();const count=await pb.locator('.plugin-row').filter({hasText:'Волшебное лассо'}).getByRole('button',{name:'Выключить',exact:true}).count();await closeSettings(pb);return count;},{timeout:20000}).toBe(1);
  expect(errors).toEqual([]);await a.close();await b.close();
 });

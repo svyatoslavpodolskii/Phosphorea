@@ -1,6 +1,8 @@
 <script lang="ts">
  import {onMount,onDestroy,tick,untrack} from 'svelte';
  import {surface} from './surfaces';
+ import Choice from './Choice.svelte';
+ import {pluginSyncMode,type PluginSyncMode} from '../sync/profile';
  import {deviceSync,type SyncStatus} from '../sync/session';
  import {parseInvitation} from '../sync/crypto';
  import {canonical,key,type SyncRecord} from '../sync/records';
@@ -10,6 +12,8 @@
  let {core,onclose,invitation='',workspaceName='Основное'}:{core:Core;onclose:()=>void;invitation?:string;workspaceName?:string}=$props();
  let syncStatus=$state<SyncStatus>({phase:'idle',message:'',devices:[],conflicts:0,workspaces:[],selected:[],remoteWorkspaces:[],remoteSelected:[]}),mode=$state<'home'|'qr'|'scan'|'link'>('home'),qr=$state(''),link=$state(''),name=$state(''),error=$state(''),feedback=$state(''),busy=$state(false),differences=$state<SyncRecord[]>([]),selected=$state(''),editName=$state(false);
  let syncVisual=$state(false);
+ let pluginsMode=$state<PluginSyncMode>('all');
+ onMount(()=>{void storage.syncGetGlobal('sync:plugins').then(value=>pluginsMode=pluginSyncMode(value));});
  let video=$state<HTMLVideoElement>();let showLink=$state(false);let scanner:QrScanner|undefined,alive=true,qrValue='';
  const storage=untrack(()=>core.storage as SQLiteAdapter);
  const session=deviceSync(untrack(()=>core));const unsubscribe=session.subscribe(value=>{syncStatus=value;if(value.invite)void makeQr(value.invite).catch(()=>error='Не удалось показать QR. Используйте ссылку подключения.');if(value.phase==='done')void refresh().catch(e=>error=e.message);});
@@ -64,8 +68,10 @@
 <div class="scrim" use:surface={{close:onclose}}><div class="editor settings device-sync" role="dialog" aria-modal="true" aria-label="Устройства и синхронизация" tabindex="-1">
  <div class="row sync-header"><div><h2>Ваши устройства</h2><p class="sync-help">Напрямую. Без облачного хранилища.</p></div><button aria-label="Закрыть синхронизацию" onclick={onclose}><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
  <div class="sync-body">
- <p class="sync-help">При открытом приложении изменения передаются автоматически. Выбранные хранилища остаются отдельными. Набор плагинов, их рабочие настройки и типы заметок общие для ваших устройств: нужные инструменты будут доступны на обоих.</p>
- <label class="workspace-option"><input type="checkbox" bind:checked={syncVisual} onchange={()=>run(()=>session.setVisual(syncVisual))}/><span>Синхронизировать оформление<small>Только для этого устройства. Выключено — тема, анимации и инструмент зума остаются своими. Заметки, папки, связи и рабочие плагины продолжают синхронизироваться.</small></span></label>
+ <p class="sync-help">При открытом приложении изменения передаются автоматически. Выбранные хранилища остаются отдельными. По умолчанию набор плагинов, их рабочие настройки и типы заметок общие для ваших устройств: нужные инструменты будут доступны на обоих.</p>
+ <details class="sync-preferences"><summary>Плагины и оформление<small>{pluginsMode==='all'?'Общие плагины':pluginsMode==='settings'?'Только настройки':'Свои плагины'} · {syncVisual?'общее оформление':'своя тема'}</small></summary> <label class="workspace-option"><input type="checkbox" bind:checked={syncVisual} onchange={()=>run(()=>session.setVisual(syncVisual))}/><span>Синхронизировать оформление<small>Только для этого устройства. Выключено — тема, анимации и инструмент зума остаются своими. На обмен заметками это не влияет.</small></span></label>
+ <div class="plugin-sync-policy"><Choice label="Получать плагины на это устройство" value={pluginsMode} options={[{value:'all',label:'Плагины и настройки'},{value:'settings',label:'Настройки установленных'},{value:'local',label:'Свои плагины'}]} onchange={value=>run(async()=>{await session.setPluginMode(value as PluginSyncMode);pluginsMode=value as PluginSyncMode;})}/><p class="sync-help">{pluginsMode==='all'?'Рекомендуется: одинаковые инструменты на обоих устройствах. Установки, включение и рабочие настройки передаются вместе.':pluginsMode==='settings'?'Набор и включение плагинов здесь свои. Принимаются параметры карты и настройки уже установленных плагинов.':'Рабочие плагины и их параметры здесь не меняются при обмене. Неизвестные типы заметок сохраняются; их расширения можно установить отдельно.'} Заметки, папки и связи передаются в любом режиме. Выбор действует только на получение этим устройством.</p></div>
+ </details>
  {#if error}<p role="alert" class="inline-error">{error}</p>{/if}
  {#if feedback}<p role="status" class="sync-feedback">{feedback}</p>{/if}
  {#if !connected}

@@ -38,5 +38,7 @@ test('desktop surfaces fit short and wide windows; mobile release notes remain r
  await closeSettings(page);await page.setViewportSize({width:390,height:844});await openSettings(page);await page.getByRole('button',{name:'Что нового',exact:true}).click();
  await settled(page);await page.screenshot({path:'artifacts/release-mobile.png'});
  const panel=page.locator('.release-notes');expect(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);await expect(panel.getByRole('button',{name:'Продолжить',exact:true})).toBeInViewport();
+ expect(await panel.evaluate(el=>el.scrollHeight<=el.clientHeight+1)).toBe(true);
+ await page.setViewportSize({width:360,height:600});await panel.locator('.release-body').evaluate(el=>el.scrollTop=el.scrollHeight);await expect(panel.getByRole('button',{name:'Продолжить',exact:true})).toBeInViewport();expect(await panel.evaluate(el=>el.scrollHeight<=el.clientHeight+1)).toBe(true);
  expect(errors).toEqual([]);
 });
