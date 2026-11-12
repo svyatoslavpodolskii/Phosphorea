@@ -32,4 +32,19 @@ main>header{z-index:8}.save-status:has(.save-popover){z-index:1}
 
 .author-card{width:100%;display:grid;gap:5px;padding:18px 0;margin:8px 0;border-top:1px solid var(--theme-border)}.author-card strong{font-size:14px;font-weight:550}.author-card small{color:var(--theme-muted);font-size:11px}.author-card a{color:var(--theme-text);font-size:12px;line-height:1.5;padding:10px 0;text-underline-offset:4px}.state-drop-tray{max-width:calc(100vw - 16px)}.state-drop-tray [data-atom-state]{min-width:0;flex:1;padding-inline:6px}
 header .sync-trigger{display:grid;place-items:center;flex:none;width:40px;height:44px;min-height:44px;padding:0;border:0;background:transparent;color:var(--theme-muted)}
+.update-prompt{width:max-content;max-width:min(580px,calc(100% - 32px));white-space:normal;gap:24px;padding:16px 18px;border-radius:22px;box-shadow:0 4px 16px #0002,0 18px 48px #0001;animation:update-enter 180ms ease-out}
+.update-copy{display:grid;gap:4px;min-width:0}.update-copy strong{font-size:14px;font-weight:600}.update-copy span{font-size:12px;line-height:1.5;color:var(--theme-muted)}.update-actions{display:flex;gap:6px;flex:none}.update-prompt .update-later{background:transparent;border-color:transparent;color:var(--theme-muted);padding:8px 12px}.update-prompt .update-now{background:var(--theme-accent);color:var(--theme-onAccent);border-color:transparent;padding:8px 14px}.update-prompt button{font-size:13px;min-height:40px}
+@keyframes update-enter{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
+@media(max-width:650px){.update-prompt{width:calc(100% - 24px);max-width:440px;gap:12px;flex-wrap:wrap;padding:16px}.update-copy{flex:1 1 200px}.update-actions{margin-left:auto}.update-prompt button{min-height:44px}}
+@media(prefers-reduced-motion:reduce){.update-prompt{animation:none}}
+/* Desktop sheets keep comfortable reading widths without inheriting mobile sizing. */
+@media(min-width:651px){
+ .scrim{padding:24px}.scrim>.editor{max-width:calc(100vw - 48px);max-height:calc(100dvh - 48px);min-width:0;overscroll-behavior:contain;scrollbar-gutter:stable}
+ .note-scrim>.note-editor:not(.expanded){width:clamp(500px,46vw,680px);height:min(820px,calc(100dvh - 48px));padding:24px;gap:14px}.note-editor .note-content{height:clamp(240px,44dvh,520px);max-height:none}.note-editor .rich-editor{min-height:240px}
+ .settings{width:520px}.settings .plugin-row{min-width:0}.settings .plugin-row>div{min-width:0}.settings .plugin-row strong,.settings .plugin-row small{overflow-wrap:anywhere}.settings .button-wrap>*{max-width:100%}
+ .settings-about .check-update{margin-left:0}.settings .settings-about{gap:8px 16px}.settings-about .app-version{flex-basis:100%}.settings-about .author-card{order:3}.settings-about .render-diagnostics{order:4}
+ .search-results{width:max(100%,360px);max-width:calc(100vw - 80px)}
+}
+@media(min-width:651px) and (max-height:650px){.scrim{padding:16px}.scrim>.editor{max-height:calc(100dvh - 32px)}.note-scrim>.note-editor:not(.expanded){height:calc(100dvh - 32px);padding:18px 24px}.note-editor .note-content{min-height:160px;height:32dvh}}
+.editor .row>*{min-width:0}.editor .row>button{flex-shrink:0}
 @media(max-width:650px){header{gap:4px}}@media(max-width:360px){header .workspace-switch{width:44px;max-width:44px}header .workspace-switch>span:nth-child(2){display:none}}
