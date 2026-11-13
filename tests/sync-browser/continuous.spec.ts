@@ -42,5 +42,24 @@ test('persistent bilateral sync keeps workspaces and coordinates, shares plugins
  await openSettings(pb);await pb.getByRole('button',{name:'Плагины →',exact:true}).click();await expect(pb.locator('.plugin-row').filter({hasText:'Волшебное лассо'}).getByRole('button',{name:'Включить',exact:true})).toBeVisible();await closeSettings(pb);
  await sync(pb);await pb.locator('.sync-preferences summary').click();await pb.getByRole('combobox',{name:'Получать плагины на это устройство'}).click();await pb.getByRole('option',{name:'Плагины и настройки',exact:true}).click();await pb.getByRole('button',{name:'Закрыть синхронизацию'}).click();
  await expect.poll(async()=>{await openSettings(pb);await pb.getByRole('button',{name:'Плагины →',exact:true}).click();const count=await pb.locator('.plugin-row').filter({hasText:'Волшебное лассо'}).getByRole('button',{name:'Выключить',exact:true}).count();await closeSettings(pb);return count;},{timeout:20000}).toBe(1);
+ // Deleting the received workspace is local: a trusted reconnect must not resurrect it.
+ await pb.getByRole('button',{name:'\u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0445\u0440\u0430\u043d\u0438\u043b\u0438\u0449\u0435',exact:true}).click();
+ await pb.locator('.workspace-menu .danger-button').click();await pb.locator('.workspace-menu input').fill('\u041e\u0441\u043d\u043e\u0432\u043d\u043e\u0435 \u00b7 2');await pb.locator('.workspace-menu .danger-button').click();
+ await expect(pb.locator('footer')).toBeVisible();await pa.reload();await expect(pa.locator('footer')).toBeVisible();
+ await sync(pb);await expect(pb.getByRole('heading',{name:'\u041a\u0430\u0440\u0442\u044b \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0438\u0440\u043e\u0432\u0430\u043d\u044b',exact:true})).toBeVisible({timeout:30000});await pb.getByRole('button',{name:'\u0417\u0430\u043a\u0440\u044b\u0442\u044c \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u044e'}).click();
+ expect((await readMap(pb)).atoms.map(a=>a.id)).toEqual(['phone-note']);expect((await readMap(pa)).atoms[0].id).toBe('laptop-note');
+ await pb.getByRole('button',{name:'\u0412\u044b\u0431\u0440\u0430\u0442\u044c \u0445\u0440\u0430\u043d\u0438\u043b\u0438\u0449\u0435',exact:true}).click();await expect(pb.locator('.workspace-menu .workspace-list>button')).toHaveCount(1);await pb.getByRole('button',{name:'\u0417\u0430\u043a\u0440\u044b\u0442\u044c \u0445\u0440\u0430\u043d\u0438\u043b\u0438\u0449\u0430'}).click();
+ // An explicit QR pairing can restore an excluded scope, without reviving it implicitly.
+ await pa.context().grantPermissions(['clipboard-read','clipboard-write']);
+ await sync(pa);await pa.getByRole('button',{name:'Изменить хранилища',exact:true}).click();
+ await pa.locator('.workspace-picker .workspace-option input').first().check();await pa.getByRole('button',{name:/Показать QR/}).click();await pa.getByRole('button',{name:'Скопировать ссылку',exact:true}).click();
+ const recoveryLink=await pa.getByRole('textbox',{name:'Ссылка для другого устройства'}).count()?await pa.getByRole('textbox',{name:'Ссылка для другого устройства'}).inputValue():await pa.evaluate(()=>navigator.clipboard.readText());
+ await sync(pb);const retry=pb.getByRole('button',{name:'Попробовать снова',exact:true});if(await retry.count())await retry.click();
+ await expect(pb.getByRole('button',{name:'Подключиться по ссылке',exact:true})).toBeEnabled();await pb.getByRole('button',{name:'Подключиться по ссылке',exact:true}).click();await pb.getByRole('textbox',{name:'Ссылка подключения'}).fill(recoveryLink);await pb.getByRole('button',{name:'Подключиться',exact:true}).click();
+ for(const p of [pa,pb])await expect(p.getByRole('button',{name:'Да, совпадают',exact:true})).toBeVisible();
+ const restore=pb.locator('.exchange-summary .workspace-option').filter({has:pb.getByText('Основное',{exact:true})}).getByRole('checkbox');await expect(restore).not.toBeChecked();await restore.check();
+ for(const p of [pa,pb])await p.getByRole('button',{name:'Да, совпадают',exact:true}).click();
+ for(const p of [pa,pb]){await expect(p.getByRole('heading',{name:'Карты синхронизированы',exact:true})).toBeVisible();await p.getByRole('button',{name:'Закрыть синхронизацию'}).click();}
+ await imported(pb);expect((await readMap(pb)).atoms[0]).toMatchObject({id:'laptop-note',x:320,y:-180});
  expect(errors).toEqual([]);await a.close();await b.close();
 });

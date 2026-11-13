@@ -17,7 +17,7 @@
   if(element?.closest('[data-source-block]'))return;
   try{const position=view.posAtDOM(node,selection.anchorOffset);if(view.state.doc.resolve(position).parent.inlineContent)editor.commands.setTextSelection(position);}catch{/* A detached DOM selection is handled by ProseMirror's observer. */}
  }
- function load(markdown:string){if(!editor?.markdown)return;lastValue=markdown;editor.commands.setContent(session.load(markdown,editor.markdown),{emitUpdate:false});session.capture(editor.getJSON());}
+ function load(markdown:string){if(!editor?.markdown)return;lastValue=markdown;editor.commands.setContent(session.load(markdown,editor.markdown),{emitUpdate:false});editor.view.dispatch(editor.state.tr.setStoredMarks([]));session.capture(editor.getJSON());}
  function revealSource(){
   if(!editor?.markdown)return false;const {$from:from,empty}=editor.state.selection;if(!empty||from.parentOffset!==0||editor.isActive('taskItem')||from.depth<1)return false;
   const block=from.node(1),json=block.toJSON();if(block.type.name==='paragraph'&&!block.firstChild?.marks.length)return false;
@@ -67,7 +67,7 @@
  .rich-text:focus-within{outline:none}
  .rich-text :global(.tiptap){outline:none;min-height:100%;overflow-wrap:anywhere;white-space:pre-wrap}
  .rich-text :global(.tiptap>p:first-child){margin-top:0}
- .rich-text :global(.tiptap p){font-size:inherit;line-height:inherit;margin:.5em 0}
+ .rich-text :global(.tiptap p){color:var(--theme-text);font-size:inherit;line-height:inherit;margin:.5em 0}
  .rich-text :global(.tiptap h2){font-size:1.5em;margin:.75em 0 .4em}
  .rich-text :global(.tiptap a),.rich-text :global([data-wiki-reference]){color:var(--theme-accent);text-decoration:underline;cursor:pointer}
  .rich-text :global(.tiptap blockquote){border-left:3px solid var(--theme-accent);padding-left:14px;margin-left:0}

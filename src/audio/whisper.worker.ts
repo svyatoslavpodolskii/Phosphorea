@@ -1,16 +1,17 @@
 import {pipeline,env} from '@huggingface/transformers';
 import {checkedModel,modelCache} from './models';
+import {cacheDownload,downloadModel} from './download';
 const wasmUrl=new URL('../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm',import.meta.url).href;
 const runtimeKey=(url:string)=>location.origin+'/.__phosphoreya-whisper/'+new URL(url).pathname.split('/').pop();
 const moduleUrl=new URL('../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.mjs',import.meta.url).href;
 self.onmessage=async({data})=>{try{
  const model=checkedModel(data.model),cache=await caches.open(modelCache(model));env.allowLocalModels=false;env.useBrowserCache=false;env.useCustomCache=true;env.customCache=cache;env.allowRemoteModels=true;if(data.kind!=='install')self.fetch=async()=>{throw Error('Model file is not cached. Download the model again.');};
- const runtime=await caches.open('phosphoreya-whisper-runtime');for(const url of [wasmUrl,moduleUrl]){if(!await runtime.match(runtimeKey(url))){if(data.kind!=='install')throw Error('Движок не сохранён. Загрузите модель ещё раз.');self.postMessage({kind:'progress',text:'Загружаем движок распознавания…'});const response=await fetch(url);if(!response.ok)throw Error('Не удалось загрузить движок.');await runtime.put(runtimeKey(url),response);}}
- const wasm=await (await runtime.match(runtimeKey(wasmUrl)))!.blob(),module=await (await runtime.match(runtimeKey(moduleUrl)))!.blob();const wasmBlob=URL.createObjectURL(wasm),moduleBlob=URL.createObjectURL(new Blob([module],{type:'text/javascript'}));
+ const runtime=await caches.open('phosphoreya-whisper-runtime');for(const url of [wasmUrl,moduleUrl]){if(!await runtime.match(runtimeKey(url))&&!await runtime.match(url)){if(data.kind!=='install')throw Error('Движок не сохранён. Загрузите модель ещё раз.');self.postMessage({kind:'progress',text:'Загружаем движок распознавания…'});await cacheDownload(runtime,url,(loaded,total)=>self.postMessage({kind:'progress',text:'Движок · '+(loaded/1048576).toFixed(1)+(total?' / '+(total/1048576).toFixed(1):'')+' МБ'}));await runtime.put(runtimeKey(url),(await runtime.match(url))!);await runtime.delete(url);}}
+ if(data.kind==='install'){await downloadModel(cache,model,(loaded,total,index,count)=>{const mb=(loaded/1048576).toFixed(1),size=total?` / ${(total/1048576).toFixed(1)}`:'';self.postMessage({kind:'progress',text:`\u0424\u0430\u0439\u043b ${index+1} \u0438\u0437 ${count} \u00b7 ${mb}${size} \u041c\u0411`,progress:(index+(total?Math.min(1,loaded/total):0))/count*100});});self.postMessage({kind:'done',text:''});return;}
+ const wasm=await (await runtime.match(runtimeKey(wasmUrl))||await runtime.match(wasmUrl))!.blob(),module=await (await runtime.match(runtimeKey(moduleUrl))||await runtime.match(moduleUrl))!.blob();const wasmBlob=URL.createObjectURL(wasm),moduleBlob=URL.createObjectURL(new Blob([module],{type:'text/javascript'}));
  const backend=env.backends.onnx.wasm!;backend.numThreads=1;backend.proxy=false;backend.wasmPaths={wasm:wasmBlob,mjs:moduleBlob};
  const transcriber:any=await pipeline('automatic-speech-recognition',model,{dtype:'q8',device:'wasm',progress_callback:(event:any)=>self.postMessage({kind:'progress',text:event.file||'Подготавливаем модель…',progress:event.progress})});
- if(data.kind==='install'){self.postMessage({kind:'done',text:''});return;}
  const pcm=new Float32Array(data.audio);const total=Math.max(1,Math.ceil(pcm.length/16000/25));let completed=0;
  const result=await transcriber(pcm,{chunk_length_s:30,stride_length_s:5,task:'transcribe',...(!model.endsWith('.en')&&data.language!=='auto'?{language:data.language}:{}),chunk_callback:()=>self.postMessage({kind:'progress',text:'Расшифровываем на устройстве…',progress:Math.min(99,++completed/total*100)})});
  self.postMessage({kind:'done',text:result.text||''});
- }catch(error){self.postMessage({kind:'error',error:(error as Error).message});}};
+ }catch(error){self.postMessage({kind:'error',error:(error as Error).name==='AbortError'?'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u043d\u0435 \u043e\u0442\u0432\u0435\u0447\u0430\u0435\u0442. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435: \u0433\u043e\u0442\u043e\u0432\u044b\u0435 \u0444\u0430\u0439\u043b\u044b \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u044b.':(error as Error).message});}};

@@ -7,7 +7,7 @@ import {migrate} from './schema';
 import {snapshot,transact,transactWithRetry} from './operations';
 import {exportRecords,applyRecords,conflicts,resolveConflict,initializeActor} from '../sync/storage';
 import {identity} from '../sync/crypto';
-import {catalog,changeWorkspace,removeWorkspace} from './workspaces';
+import {catalog,changeWorkspace,removeWorkspace,EXCLUDED_SCOPES} from './workspaces';
 import {validateWorkspaces,type SyncWorkspace,type WorkspaceTransfer} from '../sync/workspaces';
 import {validateRecord} from '../sync/records';
 const workspaceDbs=new Map<string,any>();
@@ -24,7 +24,7 @@ async function syncApplyWorkspaces(transfers:WorkspaceTransfer[],approved:SyncWo
  validateWorkspaces(approved);if(!Array.isArray(transfers)||transfers.length!==approved.length)throw Error('Список передачи не совпадает с разрешением.');
  const seen=new Set<string>();for(const w of transfers){const permission=approved.find(p=>p.scope===w.scope);if(!permission||permission.id!==w.id||permission.name!==w.name||seen.has(w.scope)||!Array.isArray(w.records)||w.records.length>200000)throw Error('Передача хранилища не разрешена.');seen.add(w.scope);for(const r of w.records)validateRecord(r);const references=attachmentReferences(w.records),refs=new Set(references.keys()),payloads=w.attachments||[];if(!Array.isArray(payloads)||payloads.length>2000||new Set(payloads.map(p=>p.meta.id)).size!==payloads.length)throw Error('Invalid attachments');for(const payload of payloads){if(!refs.has(payload.meta.id))throw Error('Unreferenced attachment');sameAttachment(references.get(payload.meta.id),payload.meta);await validatePayload(payload);}if([...refs].some(id=>!payloads.some(p=>p.meta.id===id)))throw Error('Обновите приложение на обоих устройствах: отсутствуют вложения.');}
  const local=await syncWorkspaces();let count=0;const next={...mapping};
- for(const w of transfers){let id:string|undefined=next[w.scope];if(id&&!local.some(p=>p.id===id))throw Error('Хранилище пары удалено. Настройте подключение заново.');id ||= local.find(p=>p.scope===w.scope)?.id;
+ for(const w of transfers){let id:string|undefined=next[w.scope];if((setting(rootDb,EXCLUDED_SCOPES)||[]).includes(w.scope)){delete next[w.scope];continue;}if(id&&!local.some(p=>p.id===id&&p.scope===w.scope)){delete next[w.scope];id=undefined;}id ||= local.find(p=>p.scope===w.scope)?.id;
   if(!id){let name=w.name,index=1;while(catalog(rootDb).items.some(p=>p.name.toLocaleLowerCase()===name.toLocaleLowerCase()))name=w.name.slice(0,65)+' · '+(++index);const list=changeWorkspace(rootDb,'create',name);id=list.items.at(-1)!.id;setting(await workspaceDb(id),'sync:scope-id',w.scope);}
   const target=await workspaceDb(id),payloads=w.attachments||[],assetIds=JSON.parse(target.selectValue('SELECT value FROM settings WHERE key=?',[ASSET_INDEX])||'[]');for(const payload of payloads){const raw=target.selectValue('SELECT value FROM settings WHERE key=?',['note-asset:'+payload.meta.id+':meta']);sameAttachment(raw?JSON.parse(raw):undefined,payload.meta);}const extra=[...payloads.flatMap(payloadOps),...(payloads.length?[{kind:'setting' as const,key:ASSET_INDEX,value:[...new Set([...assetIds,...payloads.map(p=>p.meta.id)])]}]:[])];const result=applyRecords(target,w.records.filter(r=>r.kind!=='setting'&&r.kind!=='catalog'),transact,extra);safelyCollectAttachments(target);setting(target,'structural-layout-v2',true);count+=result.conflicts;next[w.scope]=id;
  }
@@ -55,7 +55,7 @@ self.onmessage=({data:{id,method,args}})=>{queue=queue.then(async()=>{
  else if(method==='syncWorkspaces')result=await syncWorkspaces();
  else if(method==='syncExportWorkspaces'){const all=await syncWorkspaces();if(!Array.isArray(args[0])||args[0].some((id:string)=>!all.some(w=>w.id===id)))throw Error('Хранилище не найдено.');result=[];for(const w of all.filter(w=>args[0].includes(w.id))){const target=await workspaceDb(w.id),records=exportRecords(target).filter(r=>r.kind!=='setting'&&r.kind!=='catalog');result.push({...w,records,attachments:databaseAttachments(target,referencedAttachments(records))});}}
  else if(method==='syncApplyWorkspaces')result=await syncApplyWorkspaces(args[0],args[1],args[2]);
- else if(method==='syncGetGlobal'||method==='syncSetGlobal'){if(typeof args[0]!=='string'||!/^sync:(trusted:|device-name$|visual$|plugins$)/.test(args[0]))throw Error('Неверный ключ устройства.');result=method==='syncGetGlobal'?setting(rootDb,args[0]):setting(rootDb,args[0],args[1]);}
+ else if(method==='syncGetGlobal'||method==='syncSetGlobal'){if(typeof args[0]!=='string'||!/^sync:(trusted:|device-name$|visual$|plugins$|excluded-scopes$)/.test(args[0]))throw Error('Неверный ключ устройства.');result=method==='syncGetGlobal'?setting(rootDb,args[0]):setting(rootDb,args[0],args[1]);}
  else if(method==='syncExport')result=exportRecords(db);
  else if(method==='syncApply')result=applyRecords(db,args[0],transact);
  else if(method==='syncConflicts')result=[...conflicts(db).filter(r=>r.kind==='atom'||r.kind==='link'),...conflicts(rootDb).filter(r=>r.kind==='setting')];
@@ -63,7 +63,7 @@ self.onmessage=({data:{id,method,args}})=>{queue=queue.then(async()=>{
  else if(method==='workspaces')result=catalog(rootDb);
  else if(method==='createWorkspace')result=changeWorkspace(rootDb,'create',args[0]);
  else if(method==='renameWorkspace')result=changeWorkspace(rootDb,'rename',args[1],args[0]);
- else if(method==='deleteWorkspace'){const cached=workspaceDbs.get(args[0]);if(cached&&cached!==db){cached.close();workspaceDbs.delete(args[0]);}const current=catalog(rootDb).current;result=removeWorkspace(rootDb,args[0]);if(args[0]===current){if(db!==rootDb)db.close();restored=true;}if(args[0]!=='default')await cleanupDeleted();}
+ else if(method==='deleteWorkspace'){const cached=workspaceDbs.get(args[0]);if(cached&&cached!==db){cached.close();workspaceDbs.delete(args[0]);}const current=catalog(rootDb).current,deletedScope=setting(await workspaceDb(args[0]),'sync:scope-id');result=removeWorkspace(rootDb,args[0],deletedScope);if(args[0]===current){if(db!==rootDb)db.close();restored=true;}if(args[0]!=='default')await cleanupDeleted();}
  else if(method==='selectWorkspace')result=changeWorkspace(rootDb,'select',args[0]);
  else if(method==='transaction'){const ops=args[0];await transactWithRetry(db,ops);const config=ops.filter((op:any)=>op.kind==='setting'&&profileSetting(op.key));for(const op of [...config])if(op.key==='preferences')config.push({kind:'setting',key:APPEARANCE,value:{theme:op.value.theme,customThemes:op.value.customThemes}});if(config.length)transact(rootDb,config);if(ops.some((op:any)=>op.kind==='atom'||op.kind==='delete'||op.kind==='setting'&&(['backups','last-deletion','recording-recovery'].includes(op.key)||op.key==='editor-checkpoint-v1'&&op.value===null)))safelyCollectAttachments(db);}
  else if(method==='getSetting'){const raw=(profileSetting(args[0])?rootDb:db).selectValue('SELECT value FROM settings WHERE key=?',[args[0]]);result=raw===undefined?undefined:JSON.parse(raw);}

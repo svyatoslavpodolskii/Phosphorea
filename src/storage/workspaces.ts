@@ -1,8 +1,10 @@
 import type {Database} from './schema';
+import {profileSetting} from '../sync/profile';
+export const EXCLUDED_SCOPES='sync:excluded-scopes';
 export interface Workspace {id:string;name:string}
 export interface WorkspaceCatalog {current:string;items:Workspace[]}
 /** The catalog and deletion journal share one durable transaction. */
-export function removeWorkspace(db:Database,id:string):WorkspaceCatalog{
+export function removeWorkspace(db:Database,id:string,deletedScope?:string):WorkspaceCatalog{
  const next=catalog(db);
  if(!next.items.some(w=>w.id===id))throw Error('Хранилище не найдено.');
  if(next.items.length<2)throw Error('Нельзя удалить последнее хранилище. Сначала создайте новое.');
@@ -10,9 +12,11 @@ export function removeWorkspace(db:Database,id:string):WorkspaceCatalog{
  if(next.current===id)next.current=next.items[0].id;
  db.exec('BEGIN IMMEDIATE');
  try{
+  const scope=deletedScope?JSON.stringify(deletedScope):id==='default'?db.selectValue("SELECT value FROM settings WHERE key='sync:scope-id'"):undefined;
+  if(scope){const excluded=JSON.parse(db.selectValue('SELECT value FROM settings WHERE key=?',[EXCLUDED_SCOPES])||'[]');db.exec({sql:'INSERT INTO settings VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',bind:[EXCLUDED_SCOPES,JSON.stringify([...new Set([...excluded,JSON.parse(scope)])])]});}
   if(id==='default'){
    db.exec('DELETE FROM atoms');db.exec('DELETE FROM plugin_data');
-   db.exec("DELETE FROM settings WHERE key NOT IN ('workspace-catalog','workspace-deletions')");
+   for(const {key} of db.selectObjects('SELECT key FROM settings'))if(!profileSetting(key)&&!['workspace-catalog','workspace-deletions',EXCLUDED_SCOPES,'sync:device-name','sync:visual','sync:plugins','sync:local-actor','sync:profile-ready'].includes(key)&&!key.startsWith('sync:trusted:')&&!key.startsWith('sync:record:setting:'))db.exec({sql:'DELETE FROM settings WHERE key=?',bind:[key]});
   }else{
    const pending=JSON.parse(db.selectValue("SELECT value FROM settings WHERE key='workspace-deletions'")||'[]') as string[];
    db.exec({sql:'INSERT INTO settings VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',bind:['workspace-deletions',JSON.stringify([...new Set([...pending,id])])]});

@@ -38,3 +38,12 @@ test('visual edits preserve untouched Markdown, wiki references and unsupported 
  await focus(page,'Source preservation');await page.getByRole('textbox',{name:'Название',exact:true}).fill('Title only');await page.getByRole('button',{name:'Готово',exact:true}).click();
  expect((await readMap(page)).atoms.find(a=>a.title==='Title only')!.content).toBe(saved);
 });
+
+test('blank paragraphs survive save and reload, and a fresh note does not inherit italic',async({page})=>{
+ await page.goto('/');await expect(page.locator('canvas.map')).toBeVisible();await page.locator('canvas.map').press('n');
+ const title=page.getByRole('textbox',{name:'\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435',exact:true}),visual=page.getByRole('textbox',{name:'\u0412\u0438\u0437\u0443\u0430\u043b\u044c\u043d\u044b\u0439 \u0442\u0435\u043a\u0441\u0442',exact:true});await title.fill('Paragraph spacing');await visual.fill('First');await visual.press('End');await visual.press('Enter');await visual.press('Enter');await visual.press('Enter');await page.keyboard.type('Last');await expect(visual.locator('p')).toHaveCount(4);await page.getByRole('button',{name:'Markdown',exact:true}).click();await page.getByRole('button',{name:'\u041e\u0431\u044b\u0447\u043d\u044b\u0439',exact:true}).click();await expect(visual.locator('p')).toHaveCount(4);
+ const colors=await visual.evaluate(el=>({body:getComputedStyle(el.querySelector('p')!).color,normal:getComputedStyle(el).color}));expect(colors.body).toBe(colors.normal);
+ await page.getByRole('button',{name:'\u0413\u043e\u0442\u043e\u0432\u043e',exact:true}).click();const saved=(await readMap(page)).atoms[0].content;expect(saved).toMatch(/First\n{4}Last/);
+ await focus(page,'Paragraph spacing');await expect(visual.locator('p')).toHaveCount(4);await visual.press('Control+End');await visual.press('Control+i');await page.keyboard.type(' italic');await expect(visual.locator('em')).toHaveText(' italic');await page.getByRole('button',{name:'\u0413\u043e\u0442\u043e\u0432\u043e',exact:true}).click();
+ await expect(page.locator('.note-editor')).not.toBeVisible();await page.locator('canvas.map').press('n');await title.fill('Fresh');const icon=await page.locator('.draft-indicator svg').innerHTML();await visual.fill('Plain');await expect(visual.locator('em')).toHaveCount(0);await expect(page.locator('.draft-indicator svg')).toHaveJSProperty('innerHTML',icon);await page.setViewportSize({width:390,height:844});await page.screenshot({path:'artifacts/editor-quiet-save-mobile.png'});
+});

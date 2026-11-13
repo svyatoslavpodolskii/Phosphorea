@@ -20,7 +20,7 @@ export class SyncSession {
  private get storage(){return this.core.storage as SQLiteAdapter;}
  private publish(patch:Partial<SyncStatus>){if(!this.alive)return;this.status={...this.status,...patch};for(const fn of this.subscribers)fn({...this.status});}
  private trustKey(){return 'sync:trusted:'+this.me!.id;}
- private scope='';private remoteAttachments=false;private manifestReceived=false;
+ private excluded:string[]=[];private scope='';private remoteAttachments=false;private manifestReceived=false;
  private remoteCommit='';private localCommitted=false;private helloRevealed=false;
  private revealHello(){if(this.localCommitted&&this.remoteCommit&&!this.helloRevealed&&this.connection?.open&&this.local){this.helloRevealed=true;this.connection.send(JSON.stringify({t:'hello',hello:this.local.hello}));}}
  private async initialize(){
@@ -28,7 +28,7 @@ export class SyncSession {
   try{
    this.me=await identity();this.name=await this.storage.syncGetGlobal<string>('sync:device-name')||await this.storage.getSetting<string>('sync:device-name')||(/Android|iPhone|iPad/.test(navigator.userAgent)?'Телефон':'Компьютер');
    this.scope=await this.storage.getSetting<string>('sync:scope-id')||crypto.randomUUID();await this.storage.transaction([{kind:'setting',key:'sync:scope-id',value:this.scope}]);
-   this.trusted=await this.storage.syncGetGlobal<TrustedDevice[]>(this.trustKey())||await this.storage.getSetting<TrustedDevice[]>(this.trustKey())||[];const workspaces=await this.storage.syncWorkspaces();this.publish({workspaces,selected:workspaces.map(w=>w.id)});await this.refreshConflicts();if(!this.alive)return;
+   this.excluded=await this.storage.syncGetGlobal<string[]>('sync:excluded-scopes')||[];this.trusted=await this.storage.syncGetGlobal<TrustedDevice[]>(this.trustKey())||await this.storage.getSetting<TrustedDevice[]>(this.trustKey())||[];const workspaces=await this.storage.syncWorkspaces();for(const device of this.trusted)for(const [scope,id] of Object.entries(device.mapping||{}))if(!workspaces.some(w=>w.scope===scope))this.excluded.push(scope);this.excluded=[...new Set(this.excluded)];await this.storage.syncSetGlobal('sync:excluded-scopes',this.excluded);this.publish({workspaces,selected:workspaces.map(w=>w.id)});await this.refreshConflicts();if(!this.alive)return;
    // Production uses the same public PeerServer rendezvous as vmeste. Notes never enter it.
    const signal=import.meta.env.VITE_SYNC_SIGNALING as string|undefined;const url=signal?new URL(signal):null;
    this.peer=new Peer(peerId(this.me.id),{debug:0,...(url?{host:url.hostname,port:Number(url.port)||(url.protocol==='https:'?443:80),path:url.pathname,secure:url.protocol==='https:',...(['127.0.0.1','localhost'].includes(url.hostname)?{config:{iceServers:[]}}:{})}:{})});
@@ -84,11 +84,11 @@ export class SyncSession {
   if(msg.t==='manifest'){this.remoteAttachments=msg.attachments===1;
    if(msg.protocol!==2)throw Error('Обновите Phosphoreya на обоих устройствах перед подключением.');if(!this.proved||this.manifestReceived)throw Error('Проверка списка хранилищ не пройдена.');validateWorkspaces(msg.workspaces);
    if(!Array.isArray(msg.selected)||new Set(msg.selected).size!==msg.selected.length||msg.selected.some((id:unknown)=>typeof id!=='string'||!msg.workspaces.some((w:SyncWorkspace)=>w.id===id)))throw Error('Проверка списка хранилищ не пройдена.');
-   this.manifestReceived=true;this.publish({remoteWorkspaces:msg.workspaces,remoteSelected:msg.selected,remoteOffered:msg.selected});
+   this.manifestReceived=true;this.publish({remoteWorkspaces:msg.workspaces,remoteSelected:msg.workspaces.filter((w:SyncWorkspace)=>msg.selected.includes(w.id)&&!this.excluded.includes(w.scope)).map((w:SyncWorkspace)=>w.id),remoteOffered:msg.selected});
    const trusted=this.trusted.find(d=>d.id===this.remoteId),incoming=msg.workspaces.filter((w:SyncWorkspace)=>msg.selected.includes(w.id)).map((w:SyncWorkspace)=>w.scope),outgoing=this.status.workspaces.filter(w=>this.status.selected.includes(w.id)).map(w=>w.scope);
    const unchanged=trusted?.incoming&&incoming.every((scope:string)=>trusted.incoming!.includes(scope))&&outgoing.every(scope=>trusted.outgoing?.includes(scope));
    const empty=false;
-   this.localConfirmed=Boolean(unchanged&&trusted?.version===2);
+   this.localConfirmed=Boolean(unchanged&&trusted?.version===2&&!this.secret);
    this.publish({phase:this.localConfirmed?'waiting':'verify',message:empty?'Подтвердите на устройстве с дневником.':this.localConfirmed?'Проверяем разрешённые хранилища…':'Сравните эмодзи и разрешите обмен хранилищами.',emojis:this.channel!.emojis});
    if(this.localConfirmed)await this.send({t:'confirm',incoming:this.status.remoteSelected});await this.maybeAuthorized();return;
   }
@@ -124,6 +124,7 @@ export class SyncSession {
  async confirm(){if(!this.proved||!this.channel||!this.manifestReceived)return;this.localConfirmed=true;this.publish({phase:'waiting',message:'Ждём подтверждения на втором экране…'});await this.send({t:'confirm',incoming:this.status.remoteSelected});await this.maybeAuthorized();}
  private async maybeAuthorized(){if(!this.localConfirmed||!this.remoteConfirmed||!this.proved||this.authorized)return;this.authorized=true;this.invite=undefined;this.invitationId='';clearTimeout(this.handshakeTimer);
   const prior=this.trusted.find(d=>d.id===this.remoteId),mapping=prior?.version===2?{...prior.mapping}:{};
+  this.excluded=this.excluded.filter(scope=>!this.status.remoteWorkspaces.some(w=>w.scope===scope&&this.status.remoteSelected.includes(w.id)));await this.storage.syncSetGlobal('sync:excluded-scopes',this.excluded);
   const entry:TrustedDevice={id:this.remoteId,name:this.remote!.name,scope:this.remote!.scope,publicKey:this.remote!.identity,version:2,pairedAt:prior?.pairedAt||new Date().toISOString(),mapping,outgoing:this.status.workspaces.filter(w=>this.status.selected.includes(w.id)).map(w=>w.scope),incoming:this.status.remoteWorkspaces.filter(w=>this.status.remoteSelected.includes(w.id)).map(w=>w.scope)};const scopes=[...new Set([...entry.incoming!,...entry.outgoing!])];entry.incoming=scopes;entry.outgoing=scopes;this.trusted=[...this.trusted.filter(d=>d.id!==entry.id),entry].slice(-32);await this.saveTrust();void this.sync().catch(e=>this.fail(e.message));
  }
  private async saveTrust(){await this.storage.syncSetGlobal(this.trustKey(),this.trusted);this.publish({devices:this.trusted});}

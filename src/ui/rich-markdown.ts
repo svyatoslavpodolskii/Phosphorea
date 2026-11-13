@@ -80,7 +80,7 @@ export class MarkdownSession{
   const content:JSONContent[]=[];let offset=0;
   for(const token of tokens){
    const raw=source.slice(offsets[offset],offsets[offset+token.raw.length]);offset+=token.raw.length;
-   if(token.type==='space'){const previous=content.at(-1),key=previous?.attrs?.sourceKey;if(key){this.originals.get(key)!.raw+=raw;if(previous.type==='sourceBlock')previous.attrs!.raw+=raw;}else this.prefix+=raw;continue;}
+   if(token.type==='space'){const previous=content.at(-1),key=previous?.attrs?.sourceKey;if(key){const lines=raw.replace(/\r/g,'').length,extra=/^[\r\n]+$/.test(raw)&&previous.type!=='sourceBlock'?Math.max(0,lines-2):0;this.originals.get(key)!.raw+=extra?this.eol.repeat(2):raw;if(previous.type==='sourceBlock')previous.attrs!.raw+=raw;for(let i=0;i<extra;i++){const blankKey=crypto.randomUUID();this.originals.set(blankKey,{raw:this.eol,json:''});content.push({type:'paragraph',attrs:{sourceKey:blankKey}});}}else this.prefix+=raw;continue;}
    // A task list may parse as several blocks (mixed checkboxes/bullets); preserve those intact.
    let nodes:JSONContent[]=[];
    if(supportedToken(token))try{nodes=manager.parse(token.raw).content||[];}catch{ /* Use the protected source block below. */ }
@@ -103,11 +103,12 @@ export class MarkdownSession{
    let raw:string;
    if(unchanged)raw=original!.raw;
    else if(node.type==='sourceBlock')raw=String(node.attrs?.raw||'');
+   else if(node.type==='paragraph'&&!node.content?.length){const trailing=result.match(/(?:\r?\n)*$/)?.[0]||'';raw=this.eol.repeat(Math.max(0,2-trailing.replace(/\r/g,'').length)+1);}
    else{
     raw=manager.serialize({type:'doc',content:[node]}).replace(/\r?\n/g,this.eol);
     if(original)raw+=original.raw.match(/(?:\r?\n)*$/)?.[0]||'';
    }
-   if(result&&raw&&(previousChanged||!unchanged)){const trailing=result.match(/(?:\r?\n)*$/)?.[0]||'';if(trailing.replace(/\r/g,'').length<2)result+=this.eol.repeat(2-trailing.replace(/\r/g,'').length);}
+   if(result&&raw.trim()&&(previousChanged||!unchanged)){const trailing=result.match(/(?:\r?\n)*$/)?.[0]||'';if(trailing.replace(/\r/g,'').length<2)result+=this.eol.repeat(2-trailing.replace(/\r/g,'').length);}
    result+=raw;previousChanged=!unchanged;
   }
   return result;
