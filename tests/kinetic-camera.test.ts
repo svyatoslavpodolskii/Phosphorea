@@ -8,3 +8,14 @@ it('a pinch flick continues smoothly, preserves its anchor, then yields immediat
 it('holding still before release and reduced motion do not add inertia',()=>{
  for(const [reduced,pause] of [[true,0],[false,150]] as const){const {rig,target}=flick(reduced,pause);for(let i=0;i<120;i++)rig.step(16);expect(rig.value.zoom).toBeCloseTo(target,8);}
 });
+
+it('integrates a held pinch between sparse input events and sleeps when it catches up',()=>{
+ const rig=new CameraRig();rig.resize({width:390,height:844});rig.set({x:0,y:0,zoom:1});
+ rig.pinchTo({x:195,y:422},2);rig.step(8);
+ expect(rig.gesturing).toBe(true);expect(rig.needsFrame).toBe(true);
+ const first=rig.value.zoom;rig.step(8);expect(rig.value.zoom).toBeGreaterThan(first);
+ for(let i=0;i<180&&rig.needsFrame;i++)rig.step(8);
+ expect(rig.value.zoom).toBeCloseTo(2,6);expect(rig.needsFrame).toBe(false);
+ rig.pinchTo({x:195,y:422},1.5);expect(rig.needsFrame).toBe(true);
+ rig.halt();rig.trackTo({x:20,y:30,zoom:1.5});expect(rig.needsFrame).toBe(false);
+});

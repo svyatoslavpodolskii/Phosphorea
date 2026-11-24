@@ -76,6 +76,9 @@ export class CameraRig{
   get value(){return this.camera;}
   get anchored(){return this.anchor!==null;}
   get gesturing(){return this.direct;}
+  /** A held pinch still has a spring to integrate between input events. A
+   * directly tracked one-finger pan has no intermediate frames to compute. */
+  get needsFrame(){return this.moving&&(!this.direct||this.pinching);}
   get intended(){return this.target;}
 
   /** Keep the original world anchor under the moving finger midpoint while

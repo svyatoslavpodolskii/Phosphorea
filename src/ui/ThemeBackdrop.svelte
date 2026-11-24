@@ -1,10 +1,11 @@
 <script lang="ts">
+ import type {CameraFrames} from '../graph/camera-frames';
  import {onMount,untrack} from 'svelte';
  import {getAppliedTheme,decorationShape,type Theme} from '../core/themes';
  import type {Camera} from '../graph/model';
  import type {Viewport} from '../graph/camera';
  import {BACKGROUND_TILE,backgroundLayers,backgroundTransform} from './theme-background';
- let {camera={x:0,y:0,zoom:1},viewport,paused=false}:{camera?:Camera;viewport?:Viewport;paused?:boolean}=$props();
+ let {frames,camera={x:0,y:0,zoom:1},viewport,paused=false}:{frames?:CameraFrames;camera?:Camera;viewport?:Viewport;paused?:boolean}=$props();
  let theme=$state<Theme>(getAppliedTheme()),width=$state(1280),height=$state(800),reduced=$state(false),sleeping=$state(false);
  let root:HTMLDivElement;const canvases:HTMLCanvasElement[]=[];
  const view=$derived(viewport??{width,height}),mode=$derived(reduced?'static':theme.effects.mode??'static');
@@ -23,12 +24,12 @@
  }
  /** SVG patternTransform repainted hundreds of stars every frame in Firefox.
   * Rasterise at bounded anchors; camera frames only move composited planes. */
- function refresh(){
-  const w=view.width,h=view.height;if(!w||!h)return;
+ function refresh(frameCamera=frames?.current?.camera??camera,frameView=frames?.current?.viewport??view){
+  const w=frameView.width,h=frameView.height;if(!w||!h)return;
   const depths=[.18,.4,.7];
   for(const [i,plane] of planes.entries()){
    if(!plane)continue;const canvas=canvases[i];if(!canvas)continue;
-   const next=backgroundTransform(mode,camera,view,depths[i]),base=plane.base;
+   const next=backgroundTransform(mode,frameCamera,frameView,depths[i]),base=plane.base;
    let ratio=base?next.scale/base.scale:1,dx=base?next.x-base.x*ratio:0,dy=base?next.y-base.y*ratio:0;
    const padX=mode==='static'?0:w*.5,padY=mode==='static'?0:h*.5,planeW=w+padX*2,planeH=h+padY*2,left=-padX*ratio+dx,top=-padY*ratio+dy;
    if(!base||plane.width!==w||plane.height!==h||ratio<.75||ratio>1.4||left>-padX*.15||top>-padY*.15||left+planeW*ratio<w+padX*.15||top+planeH*ratio<h+padY*.15){
@@ -47,11 +48,12 @@
  $effect(()=>{mode;untrack(()=>{if(root)rebuild();});});
  $effect(()=>{camera.x;camera.y;camera.zoom;view.width;view.height;mode;untrack(refresh);});
  onMount(()=>{
+  const offFrames=frames?.subscribe(frame=>untrack(()=>refresh(frame.camera,frame.viewport)));
   theme=getAppliedTheme();const update=(e:Event)=>untrack(()=>{theme=(e as CustomEvent<Theme>).detail;rebuild();});
   const media=matchMedia('(prefers-reduced-motion: reduce)'),motion=()=>reduced=media.matches,visibility=()=>sleeping=document.hidden;
   const observer=new ResizeObserver(([entry])=>{width=entry.contentRect.width;height=entry.contentRect.height;});observer.observe(root);
   window.addEventListener('phosphora-theme-change',update);media.addEventListener('change',motion);document.addEventListener('visibilitychange',visibility);motion();visibility();rebuild();
-  return()=>{generation++;observer.disconnect();window.removeEventListener('phosphora-theme-change',update);media.removeEventListener('change',motion);document.removeEventListener('visibilitychange',visibility);planes=[];};
+  return()=>{offFrames?.();generation++;observer.disconnect();window.removeEventListener('phosphora-theme-change',update);media.removeEventListener('change',motion);document.removeEventListener('visibilitychange',visibility);planes=[];};
  });
 </script>
 <div class="theme-backdrop" class:sleeping={sleeping||paused} bind:this={root} aria-hidden="true" data-pattern={theme.effects.pattern} data-mode={mode} style:opacity={theme.effects.strength}>

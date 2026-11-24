@@ -36,7 +36,7 @@ test('desktop shortcut opens centred search; editor is spacious and centred',asy
 
 test('search exits in place before its compact button returns',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await page.setViewportSize({width:1440,height:900});await page.goto('/');await expect(page.locator('main')).toHaveClass(/app-ready/);
- await page.keyboard.press('Control+k');const before=(await page.locator('.search-open').boundingBox())!;await page.getByRole('button',{name:'Закрыть поиск',exact:true}).click();
+ await page.keyboard.press('Control+k');await expect.poll(async()=>{const b=await page.locator('.search-open').boundingBox();return b?Math.abs(b.x+b.width/2-720):Infinity;}).toBeLessThan(1);const before=(await page.locator('.search-open').boundingBox())!;await page.getByRole('button',{name:'Закрыть поиск',exact:true}).click();
  const closing=page.locator('.search-closing');await expect(closing).toHaveCount(1);const box=(await closing.boundingBox())!;expect(Math.abs(box.x+box.width/2-before.x-before.width/2)).toBeLessThan(2);
  await expect(closing).toHaveCount(0);await page.keyboard.press('Control+k');await expect(page.getByRole('textbox',{name:'Поиск',exact:true})).toBeFocused();
 });

@@ -157,9 +157,7 @@ main.app-ready{animation:map-appear .35s ease-out}
 
 .update-prompt{position:absolute;z-index:20;bottom:calc(100px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:16px;padding:10px 12px 10px 20px;border:1px solid var(--theme-border);border-radius:18px;background:var(--theme-surface);color:var(--theme-text);max-width:calc(100% - 24px);white-space:nowrap;font-size:14px}.update-prompt button{background:var(--theme-accent);color:var(--theme-accent-ink,var(--theme-background))}
 
-/* Direct manipulation has one visual subject: the objects under the hand. */
-header,footer,.zoom-controls{transition:opacity 140ms ease-out}
-main.map-interacting header,main.map-interacting footer,main.map-interacting .zoom-controls,main.map-interacting .update-prompt{opacity:0;pointer-events:none}
+/* Map gestures never hide application controls or churn their compositing layers. */
 .content-previews{transition:opacity 100ms ease-out}
 @media(prefers-reduced-motion:reduce){header,footer,.zoom-controls,.content-previews{transition:none}}
 @media(max-width:650px){footer .storage-status{display:none}.footer-controls{margin-inline:auto}header{top:max(16px,env(safe-area-inset-top));gap:10px}nav{border-radius:28px;padding:4px}nav button{border-radius:24px;padding-inline:19px}.footer-controls .view-toggle{border-radius:28px}}

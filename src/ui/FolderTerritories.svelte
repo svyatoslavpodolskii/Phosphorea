@@ -1,7 +1,12 @@
 <script lang="ts">
+ import {onMount} from 'svelte';
+ import type {CameraFrames} from '../graph/camera-frames';
  import type {Camera} from '../graph/model';
  import {folderCameraTransform,folderDisplayColor,type FolderTerritory} from '../graph/folders';
- let {territories,camera,width,height,activeId=null}:{territories:FolderTerritory[];camera:Camera;width:number;height:number;activeId?:string|null}=$props();
+ let {frames,territories,camera:storedCamera,width,height,activeId=null}:{frames?:CameraFrames;territories:FolderTerritory[];camera:Camera;width:number;height:number;activeId?:string|null}=$props();
+ let liveCamera=$state.raw<Camera|null>(null);
+ const camera=$derived(liveCamera??storedCamera);
+ onMount(()=>frames?.subscribe(frame=>{liveCamera=frame.camera;}));
  // Paths are computed by the host on graph/position updates. Camera frames only
  // update this one SVG group transform; they never rebuild territory geometry.
  let transform=$derived(folderCameraTransform(camera,width,height));

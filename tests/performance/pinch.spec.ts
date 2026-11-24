@@ -1,5 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {mkdir,writeFile} from 'node:fs/promises';
+import {createTheme} from '../../src/core/themes';
+import {FOLDER_DEFINITIONS} from '../../src/graph/folders';
 import {makeAtom,makeLink} from '../../src/core/model';
 import {importMap,readMap} from '../e2e/helpers';
 for(const count of [20,1000])test(`${count} atoms: mobile native pinch`,async({browser,browserName})=>{
@@ -22,4 +24,28 @@ for(const count of [20,1000])test(`${count} atoms: mobile native pinch`,async({b
  const samples=new Map<number,number>();for(const id of profile.samples||[])samples.set(id,(samples.get(id)||0)+1);const hot=profile.nodes.map(n=>({name:n.callFrame.functionName,url:n.callFrame.url,line:n.callFrame.lineNumber,samples:samples.get(n.id)||0})).sort((a,b)=>b.samples-a.samples).slice(0,30);
  await mkdir('artifacts/performance',{recursive:true});await writeFile(`artifacts/performance/${process.env.PERF_LABEL||'current'}-pinch-${count}.json`,JSON.stringify({metrics,hot},null,2));console.log(JSON.stringify({count,...metrics,hot:hot.slice(0,8)}));
  expect(metrics.draw.p95).toBeLessThan(1000);await session.send('Emulation.setCPUThrottlingRate',{rate:1});const saved=await readMap(page);expect(saved.atoms.map(a=>[a.id,a.x,a.y]).sort()).toEqual(atoms.map(a=>[a.id,a.x,a.y]).sort());await context.close();
+});
+
+test('held pinch keeps animating without new touch events, with stable controls and no application-state churn',async({browser,browserName})=>{
+ test.skip(browserName!=='chromium');
+ const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:2.75,isMobile:true,hasTouch:true,storageState:{cookies:[],origins:[{origin:'http://127.0.0.1:4173',localStorage:[{name:'phosphorea:tour-v1',value:'seen'}]}]}});
+ const page=await context.newPage();await page.goto('http://127.0.0.1:4173/');await importMap(page,{atoms:[makeAtom({id:'cadence',title:'Held pinch',x:0,y:0,pinned:true,properties:{[FOLDER_DEFINITIONS]:[{id:'held-folder',name:'Held folder',color:'#75aee8',roots:['cadence']}]}})],links:[]});
+ const map=page.locator('canvas.map');await expect(map).toHaveAttribute('data-renderer-pending','false');
+ const theme=createTheme('cadence-test','Cadence',{background:'#111111',accent:'#eeeeee',tint:'#777777'},{pattern:'stars',mode:'world',strength:.3,density:.2});
+ await page.evaluate(theme=>window.dispatchEvent(new CustomEvent('phosphora-theme-change',{detail:theme})),theme);
+ await expect(page.locator('.theme-backdrop canvas').first()).toHaveAttribute('data-world-transform',/./);
+ const session=await context.newCDPSession(page),points=(distance:number)=>[{id:1,x:195-distance/2,y:422},{id:2,x:195+distance/2,y:422}];
+ const before=await page.locator('main').getAttribute('data-camera-rest-zoom');
+ await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:points(90)});
+ await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:points(180)});
+ await expect.poll(async()=>Number(await map.getAttribute('data-zoom'))).toBeCloseTo(2,3);
+ expect(await page.locator('main').getAttribute('data-camera-rest-zoom')).toBe(before);
+ await expect.poll(async()=>Number((await page.locator('.folder-territories g').getAttribute('transform'))?.match(/scale\(([^)]+)/)?.[1])).toBeCloseTo(2,3);
+ await expect.poll(async()=>Number((await page.locator('.theme-backdrop canvas').first().getAttribute('data-world-transform'))?.split(',')[0])).toBeCloseTo(2,3);
+ for(const selector of ['header','footer'])expect(await page.locator(selector).first().evaluate(el=>getComputedStyle(el).opacity)).toBe('1');
+ await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await expect.poll(async()=>Number(await page.locator('main').getAttribute('data-camera-rest-zoom'))).toBeCloseTo(2,3);
+ await page.getByRole('button',{name:'Сохранение на устройстве',exact:true}).click();await expect(page.locator('.save-popover strong')).toHaveText('Сохранено локально');
+ await page.reload();await expect.poll(async()=>Number(await map.getAttribute('data-zoom'))).toBeCloseTo(2,3);
+ await context.close();
 });
