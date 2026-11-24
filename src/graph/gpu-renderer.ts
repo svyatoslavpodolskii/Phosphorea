@@ -1,3 +1,4 @@
+import {GpuRings} from './gpu-rings';
 import {CurveStrip} from './curve-strip';
 import { Container, Graphics, GraphicsContext, FillGradient, Sprite, Texture, MeshSimple, WebGLRenderer } from 'pixi.js';
 import { measureText } from './footprint';
@@ -73,6 +74,7 @@ interface LabelEntry {
 }
 interface NodeEntry {
     root: Container;
+    parts: Container[];
     body: Graphics;
     flat: GraphicsContext;
     soft: GraphicsContext;
@@ -83,8 +85,6 @@ interface NodeEntry {
     signature: string;
     labels: LabelEntry[];
     labelLayer: Container;
-    rings: Graphics;
-    ringSignature: string;
     usedAt: number;
 }
 interface GradientEntry {
@@ -106,7 +106,9 @@ export class GpuMapRenderer {
     private lines = new Container();
     private edgeCache = new Map<string,{mesh:MeshSimple;strip:CurveStrip;usedAt:number;order:number;color:string}>();
     private curveBuilds=0;
+    private ringBatch = new GpuRings();
     private field = new Container();
+    private nodeLayers = Array.from({length: 4}, () => new Container());
     private dotLayer = new Container();
     private edgeLabelLayer = new Container();
     private dotTexture?: Texture;
@@ -145,9 +147,10 @@ export class GpuMapRenderer {
             if (/swiftshader|llvmpipe|softpipe|software|microsoft basic render/i.test(device))
                 throw Error('Hardware WebGL unavailable');
             value.stage.eventMode = 'none';
-            value.field.sortableChildren = true;
+            for (const layer of value.nodeLayers) layer.sortableChildren = true;
+            value.field.addChild(...value.nodeLayers);
             value.stage.addChild(value.world);
-            value.world.addChild(value.dotLayer, value.lines, value.field, value.edgeLabelLayer);
+            value.world.addChild(value.dotLayer, value.lines, value.ringBatch.mesh, value.field, value.edgeLabelLayer);
             value.prepareDot();
             value.canvas.addEventListener('webglcontextlost', value.onlost);
             value.canvas.addEventListener('webglcontextrestored', value.onrestored);
@@ -169,13 +172,21 @@ export class GpuMapRenderer {
                 label.signature = '';
         for (const n of this.nodes.values()) {
             n.signature = '';
-            n.ringSignature = '\0';
             for (const label of n.labels)
                 label.signature = '';
         }
     }
     private built() { this.textureBuilds++; this.canvas.dataset.textureBuilds = String(this.textureBuilds); }
-    private entry() { const root = new Container(), flat = new GraphicsContext(), soft = new GraphicsContext(), body = new Graphics({ context: flat }), rings = new Graphics(), pin = new Graphics(), icon = new Sprite(), labelLayer = new Container(); icon.anchor.set(.5); root.addChild(rings, body, icon, pin, labelLayer); this.field.addChild(root); return { root, body, flat, soft, rings, pin, icon, labelLayer, gradientKey: '', iconKey: '', signature: '', labels: [], ringSignature: '\0', usedAt: 0 } as NodeEntry; }
+    private entry() {
+        const parts = this.nodeLayers.map(layer => { const part = new Container(); layer.addChild(part); return part; });
+        const [root, iconRoot, pinRoot, labelLayer] = parts;
+        const flat = new GraphicsContext(), soft = new GraphicsContext(), body = new Graphics({context: flat});
+        const pin = new Graphics(), icon = new Sprite();
+        icon.anchor.set(.5);
+        pin.context.batchMode = 'batch';
+        root.addChild(body); iconRoot.addChild(icon); pinRoot.addChild(pin);
+        return {root, parts, body, flat, soft, pin, icon, labelLayer, gradientKey: '', iconKey: '', signature: '', labels: [], usedAt: 0} as NodeEntry;
+    }
     private releaseGradient(key: string) {
         const known = this.gradients.get(key);
         if (known && !--known.refs) {
@@ -223,8 +234,7 @@ export class GpuMapRenderer {
         this.textureBytes -= node.labels.reduce((sum, l) => sum + l.bytes, 0);
         node.body.destroy();
         node.pin.destroy();
-        node.rings.destroy();
-        node.root.destroy({ children: true });
+        for (const part of node.parts) part.destroy({ children: true });
         node.flat.destroy();
         node.soft.destroy();
         this.releaseGradient(node.gradientKey);
@@ -289,6 +299,7 @@ export class GpuMapRenderer {
         let changed = false;
         if (entry.signature !== signature) {
             const gradient = this.gradient(n.color, n.radius), flat = new GraphicsContext(), soft = new GraphicsContext();
+            flat.batchMode = soft.batchMode = 'batch';
             this.shape(flat, n).fill({ color: n.color, alpha: 24 / 255 });
             this.outline(flat, n);
             this.shape(soft, n).fill(gradient.fill);
@@ -472,26 +483,6 @@ export class GpuMapRenderer {
             }
         return changed;
     }
-    private rings(entry: NodeEntry, rings: GpuRing[]) {
-        const signature = rings.map(r => [r.radius, r.color, r.width, r.alpha, r.dashed].join(',')).join('|');
-        if (signature === entry.ringSignature)
-            return false;
-        entry.ringSignature = signature;
-        entry.rings.clear();
-        for (const ring of rings) {
-            if (ring.dashed) {
-                const gap = 9 / ring.radius, dash = 4 / ring.radius;
-                for (let angle = 0; angle < Math.PI * 2; angle += gap) {
-                    entry.rings.moveTo(Math.cos(angle) * ring.radius, Math.sin(angle) * ring.radius);
-                    entry.rings.arc(0, 0, ring.radius, angle, Math.min(angle + dash, Math.PI * 2));
-                }
-            }
-            else
-                entry.rings.circle(0, 0, ring.radius);
-            entry.rings.stroke({ color: ring.color, width: ring.width, alpha: ring.alpha });
-        }
-        return true;
-    }
     paint(width: number, height: number, resolution: number, camera: Camera, edges: GpuEdge[], nodes: GpuNode[], dots: GpuDot[] = [], edgeLabels: GpuEdgeLabel[] = []) {
         if (this.lost)
             return false;
@@ -521,6 +512,7 @@ export class GpuMapRenderer {
             if(entry.mesh.visible){entry.mesh.visible=false;changed=true;}
             if(this.edgeCache.size>4096||edgeFrame-entry.usedAt>180){entry.mesh.geometry.destroy();entry.mesh.destroy();this.edgeCache.delete(id);}
         }
+        if (this.ringBatch.paint(nodes, camera.zoom)) changed = true;
         const used = new Set<string>(), frame = ++this.frame;
         let order = 0;
         for (const n of nodes) {
@@ -535,19 +527,21 @@ export class GpuMapRenderer {
                 changed = true;
             if (this.labels(cached, n.labels))
                 changed = true;
-            if (this.rings(cached, n.rings))
-                changed = true;
+
             if (!cached.root.visible || cached.root.x !== n.x || cached.root.y !== n.y || cached.root.alpha !== n.alpha || cached.root.zIndex !== order)
                 changed = true;
             cached.usedAt = frame;
-            cached.root.visible = true;
-            cached.root.position.set(n.x, n.y);
-            cached.root.alpha = n.alpha;
-            cached.root.zIndex = order++;
+            for (const part of cached.parts) {
+                part.visible = true;
+                part.position.set(n.x, n.y);
+                part.alpha = n.alpha;
+                part.zIndex = order;
+            }
+            order++;
         }
         for (const [id, n] of this.nodes)
             if (!used.has(id) && n.root.visible) {
-                n.root.visible = false;
+                for (const part of n.parts) part.visible = false;
                 changed = true;
             }
         if (this.textureBytes > this.cacheBytes || this.nodes.size > this.cacheNodes) {
@@ -583,6 +577,7 @@ export class GpuMapRenderer {
         }
         this.edgeLabelCache.clear();
         this.dotsCache.clear();
+        this.ringBatch.destroy();
         this.stage.destroy({ children: true });
         this.dotTexture?.destroy(true);
         this.renderer.destroy();

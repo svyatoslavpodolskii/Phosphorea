@@ -30,3 +30,30 @@ Run npm run check, npm test, npm run build, then Playwright zoom-work and render
 Desktop Firefox 142 with a narrow viewport verifies Gecko rendering and fallback behavior. It is not Android Firefox or a physical Nothing Phone 1 benchmark. Device frame pacing remains to be confirmed. Screen-constant link/ring geometry still updates on zoom; this change eliminates whole-node raster regeneration rather than promising transform-only work for every graph feature.
 
 Invisible node and relationship-label caches are evicted against estimated texture memory and count limits. Visible content may exceed the soft texture budget; native geometry memory is additional. Destroy paths release contexts and reference-counted textures.
+
+
+## 0.10.6: dense mobile WebGL work counts
+
+The earlier raster-creation benchmark missed GPU draw-call overhead. The new
+`tests/performance/gpu-zoom.spec.ts` fixture uses Firefox hardware WebGL,
+390 x 844 CSS pixels, DPR 2, twenty pinned atoms in Now, sixty links, and 120
+pinch frames. It counts actual GL draw calls and vertex/index buffer uploads.
+
+| Work during the same pinch | 0.10.5 | 0.10.6 |
+| --- | ---: | ---: |
+| GL draw calls | 12,120 | 480 |
+| Buffer uploads, bytes | 55,550,400 | 38,668,800 |
+| New text/icon rasters | 0 | 0 |
+| JS preparation, median ms | 4.84 | 3.02 |
+| JS preparation, p95 ms | 8.30 | 4.78 |
+
+Node bodies, icons, pins and labels now occupy shared layers; their graphics
+contexts opt into batching. Rings use one analytic quad mesh, with CSS stroke
+width adjusted by a zoom uniform. Explicit GLSL 300 headers and a shader-draw
+assertion prevent a silent shader compilation failure from masquerading as a
+performance gain. Screenshots were compared to preserve the Now dashes.
+
+These are desktop-browser work counts and timing samples, not measured phone
+FPS. Overall RAF cadence stayed approximately the same on this desktop.
+Buffer upload cost remains; splitting render groups did not improve this fixture
+and was not retained. Canvas fallback and persistent storage are unchanged.
