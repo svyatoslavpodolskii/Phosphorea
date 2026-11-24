@@ -14,6 +14,9 @@ jobs:
   build:
     if: github.event_name != 'schedule' || github.event.repository.name == 'Phosphorea'
     runs-on: ubuntu-latest
+    env:
+      # The browser uses onnxruntime-web, not server-side CUDA binaries.
+      ONNXRUNTIME_NODE_INSTALL_CUDA: skip
     steps:
       - uses: actions/checkout@v4
         with:
