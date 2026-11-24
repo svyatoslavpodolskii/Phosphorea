@@ -57,3 +57,42 @@ These are desktop-browser work counts and timing samples, not measured phone
 FPS. Overall RAF cadence stayed approximately the same on this desktop.
 Buffer upload cost remains; splitting render groups did not improve this fixture
 and was not retained. Canvas fallback and persistent storage are unchanged.
+
+
+## 0.10.7: retained camera frames
+
+0.10.6 still prepared the entire scene on every camera frame. The renderer now
+has a camera-only path. Immutable scene identity, presentation revision, selection,
+lens, palette, viewport, semantic LOD bands and a world-space coverage guard decide
+when a full refresh is necessary. The guard accounts for atom bodies and labels,
+so panning cannot reveal an empty strip of unprepared content. A settled camera
+always gets a fresh full frame and is then persisted normally.
+
+Curves share one retained mesh. Centerlines and normals are uploaded when the
+scene changes; a zoom uniform keeps stroke width constant. Render groups isolate
+body/icon/pin geometry from live text scaling. The old render-group experiment did
+not help while full scene preparation still ran; separating camera frames is what
+makes those groups useful. Label positions/sizes and icon/pin visibility continue
+to update during gestures. Semantic crossfades, edits and dragging use full frames.
+
+Same dense mobile WebGL fixture as above, 120 frames:
+
+| Work | 0.10.6 | 0.10.7 |
+| --- | ---: | ---: |
+| Buffer uploads, bytes | 38,668,800 | 1,186,560 |
+| Full scene preparations | 120 | 3 |
+| Retained camera frames | 0 | 117 |
+| GL draw calls | 480 | 840 |
+| JS preparation, median ms | 3.02 | 0.88 |
+| JS preparation, p95 ms | 4.78 | 1.60 |
+
+The extra render groups deliberately trade three draw calls per frame for much
+less CPU preparation and buffer traffic. The 1000-note zoom/pan fixture measured
+1.46 ms median / 2.58 ms p95 preparation in the final run (0.10.6: 6.32 / 24.40).
+Desktop RAF cadence remains near the desktop display limit; these numbers are
+not evidence of actual Nothing Phone 1 FPS.
+
+Diagnostic export now includes a bounded local ring of the latest 120 camera
+frames: preparation time, RAF interval and retained/full counts. This captures the
+phone's own timing without note contents or automatic network reporting. Frame
+interval includes browser/GPU/compositing delays; preparation measures JS only.

@@ -1,8 +1,8 @@
 import {GpuRings} from './gpu-rings';
-import {CurveStrip} from './curve-strip';
-import { Container, Graphics, GraphicsContext, FillGradient, Sprite, Texture, MeshSimple, WebGLRenderer } from 'pixi.js';
-import { measureText } from './footprint';
-import { iconSprite } from './sprites';
+import {GpuCurves} from './gpu-curves';
+import { Container, Graphics, GraphicsContext, FillGradient, Sprite, Texture, WebGLRenderer } from 'pixi.js';
+import { measureText, labelSize } from './footprint';
+import { iconSprite, iconLegible } from './sprites';
 import type { Camera } from './model';
 export interface GpuEdge {
     id: string;
@@ -17,6 +17,9 @@ export interface GpuEdge {
     alpha: number;
 }
 export interface GpuLabel {
+    line?: number;
+    titleLines?: number;
+    caption?: boolean;
     text: string;
     x: number;
     y: number;
@@ -57,6 +60,8 @@ export interface GpuNode {
     icon: string;
     iconSize: number;
     iconVisible: boolean;
+    iconEligible?: boolean;
+    forceIcon?: boolean;
     pinned: boolean;
     pinVisible: boolean;
     pinColor: string;
@@ -86,6 +91,7 @@ interface NodeEntry {
     labels: LabelEntry[];
     labelLayer: Container;
     usedAt: number;
+    node?: GpuNode;
 }
 interface GradientEntry {
     fill: FillGradient;
@@ -102,13 +108,11 @@ export class GpuMapRenderer {
     constructor(private onchange: () => void = () => { }) { }
     private renderer = new WebGLRenderer();
     private stage = new Container();
-    private world = new Container();
-    private lines = new Container();
-    private edgeCache = new Map<string,{mesh:MeshSimple;strip:CurveStrip;usedAt:number;order:number;color:string}>();
-    private curveBuilds=0;
+    private world = new Container({isRenderGroup: true});
+    private curves = new GpuCurves();
     private ringBatch = new GpuRings();
     private field = new Container();
-    private nodeLayers = Array.from({length: 4}, () => new Container());
+    private nodeLayers = Array.from({length: 4}, () => new Container({isRenderGroup: true}));
     private dotLayer = new Container();
     private edgeLabelLayer = new Container();
     private dotTexture?: Texture;
@@ -150,7 +154,7 @@ export class GpuMapRenderer {
             for (const layer of value.nodeLayers) layer.sortableChildren = true;
             value.field.addChild(...value.nodeLayers);
             value.stage.addChild(value.world);
-            value.world.addChild(value.dotLayer, value.lines, value.ringBatch.mesh, value.field, value.edgeLabelLayer);
+            value.world.addChild(value.dotLayer, value.curves.mesh, value.ringBatch.mesh, value.field, value.edgeLabelLayer);
             value.prepareDot();
             value.canvas.addEventListener('webglcontextlost', value.onlost);
             value.canvas.addEventListener('webglcontextrestored', value.onrestored);
@@ -495,23 +499,8 @@ export class GpuMapRenderer {
         }
         this.world.position.set(width / 2 + camera.x, height / 2 + camera.y);
         this.world.scale.set(camera.zoom);
-        const edgeFrame=this.frame+1;
-        let edgeOrder=0;
-        for(const edge of edges){
-            let entry=this.edgeCache.get(edge.id);
-            if(!entry){const strip=new CurveStrip(),mesh=new MeshSimple({texture:Texture.WHITE,vertices:strip.vertices,uvs:strip.uvs,indices:strip.indices});mesh.autoUpdate=false;this.lines.addChild(mesh);entry={mesh,strip,usedAt:edgeFrame,order:edgeOrder,color:edge.color};this.edgeCache.set(edge.id,entry);changed=true;}
-            const update=entry.strip.update(edge,edge.width);
-            if(update.updated){entry.mesh.geometry.getBuffer('aPosition').update();changed=true;}
-            if(update.rebuilt){this.curveBuilds++;this.canvas.dataset.curveBuilds=String(this.curveBuilds);}
-            if(!entry.mesh.visible||entry.mesh.alpha!==edge.alpha||entry.color!==edge.color||entry.order!==edgeOrder)changed=true;
-            entry.mesh.visible=true;entry.mesh.alpha=edge.alpha;entry.mesh.tint=edge.color;entry.color=edge.color;
-            if(entry.order!==edgeOrder)this.lines.setChildIndex(entry.mesh,Math.min(edgeOrder,this.lines.children.length-1));
-            entry.order=edgeOrder++;entry.usedAt=edgeFrame;
-        }
-        for(const [id,entry] of this.edgeCache)if(entry.usedAt!==edgeFrame){
-            if(entry.mesh.visible){entry.mesh.visible=false;changed=true;}
-            if(this.edgeCache.size>4096||edgeFrame-entry.usedAt>180){entry.mesh.geometry.destroy();entry.mesh.destroy();this.edgeCache.delete(id);}
-        }
+        if (this.curves.paint(edges, camera.zoom)) changed = true;
+        this.canvas.dataset.curveBuilds = String(this.curves.builds);
         if (this.ringBatch.paint(nodes, camera.zoom)) changed = true;
         const used = new Set<string>(), frame = ++this.frame;
         let order = 0;
@@ -531,6 +520,7 @@ export class GpuMapRenderer {
             if (!cached.root.visible || cached.root.x !== n.x || cached.root.y !== n.y || cached.root.alpha !== n.alpha || cached.root.zIndex !== order)
                 changed = true;
             cached.usedAt = frame;
+            cached.node = n;
             for (const part of cached.parts) {
                 part.visible = true;
                 part.position.set(n.x, n.y);
@@ -561,15 +551,36 @@ export class GpuMapRenderer {
             this.renderer.render(this.stage);
         return true;
     }
+    /** Camera-only frames keep topology, textures, body geometry and attention retained. */
+    moveCamera(camera: Camera) {
+        if (this.lost || !this.width) return false;
+        this.world.position.set(this.width / 2 + camera.x, this.height / 2 + camera.y);
+        this.world.scale.set(camera.zoom);
+        this.curves.setZoom(camera.zoom);
+        this.ringBatch.setZoom(camera.zoom);
+        const size = labelSize(camera.zoom, this.width);
+        for (const entry of this.nodes.values()) {
+            if (!entry.root.visible || !entry.node) continue;
+            const node = entry.node;
+            if (node.iconEligible !== undefined) entry.icon.visible = Boolean(node.forceIcon || node.iconEligible && iconLegible(node.radius, camera.zoom));
+            entry.pin.visible = node.pinned && camera.zoom > .38;
+            for (let i = 0; i < node.labels.length; i++) {
+                const label = node.labels[i], sprite = entry.labels[i].sprite;
+                if (label.line === undefined && !label.caption) continue;
+                const font = label.caption ? Math.min(13, Math.max(10, 10 * camera.zoom)) / camera.zoom : size;
+                sprite.y = node.radius + 12 + (label.caption ? (label.titleLines || 0) * (size + 4) + 6 / camera.zoom : (label.line || 0) * (size + 4));
+                sprite.scale.set(font / BASE_FONT / RASTER_SCALE);
+            }
+        }
+        this.renderer.render(this.stage);
+        return true;
+    }
     destroy() {
         this.canvas.removeEventListener('webglcontextlost', this.onlost);
         this.canvas.removeEventListener('webglcontextrestored', this.onrestored);
         for (const node of this.nodes.values())
             this.remove(node);
         this.nodes.clear();
-        for(const entry of this.edgeCache.values()){entry.mesh.geometry.destroy();entry.mesh.destroy();}
-        this.edgeCache.clear();
-        this.lines.destroy();
         for (const entry of this.edgeLabelCache.values()) {
             entry.labelLayer.destroy({ children: true });
             for (const label of entry.labels)
@@ -577,6 +588,7 @@ export class GpuMapRenderer {
         }
         this.edgeLabelCache.clear();
         this.dotsCache.clear();
+        this.curves.destroy();
         this.ringBatch.destroy();
         this.stage.destroy({ children: true });
         this.dotTexture?.destroy(true);

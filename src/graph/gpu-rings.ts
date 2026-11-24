@@ -53,6 +53,7 @@ export class GpuRings {
     private previous: number[] = [];
     constructor() { this.mesh.visible = false; }
     private color = new Color();
+    setZoom(zoom: number) { this.uniforms.uniforms.uZoom = zoom; }
     paint(nodes: GpuNode[], zoom: number) {
         const zoomChanged = this.uniforms.uniforms.uZoom !== zoom;
         this.uniforms.uniforms.uZoom = zoom;

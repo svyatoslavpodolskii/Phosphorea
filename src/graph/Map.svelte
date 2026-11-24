@@ -33,13 +33,14 @@
  }
  $effect(()=>{if(linkInteracting)rig.halt();controller?.setInteracting(linkInteracting);});
  import type {GpuMapRenderer,GpuNode,GpuEdge,GpuLabel,GpuRing,GpuDot,GpuEdgeLabel} from './gpu-renderer';
+ import {cameraMetrics} from './frame-metrics';
  import {visualAttention} from './attention';
  import {fromAnchor,clampZoom,type Anchor} from './camera';
  import type {CameraFrames} from './camera-frames';
  import {CameraRig,wheelZoomFactor,gestureZoomFactor,screenToWorld,type Point} from './camera';
  import {revealCamera,fitCamera} from './navigation';
  import {hitRegions,pickTarget,resolveSelection} from './intent';
- import {collapseAmount} from './lod';
+ import {collapseAmount,overviewAmount} from './lod';
  const loadPreview=()=>import('../ui/ContentPreview.svelte');
  import {contentPreviews,type Preview} from "./previews";
  let previews=$state<Preview[]>([]);const previewHeights=new Map<string,number>();function previewHeight(id:string,height:number){if(previewHeights.get(id)!==height){if(previewHeights.size>200)previewHeights.clear();previewHeights.set(id,height);schedule();}}
@@ -71,7 +72,8 @@
  $effect(()=>{const request=revealRequest;if(!request)return;untrack(()=>{if(request.point){const target={x:-request.point.x*(request.zoom??1),y:-request.point.y*(request.zoom??1),zoom:request.zoom??1};scopeCamera=target;folderCamera=target;rig.retarget(target);schedule();return;}const atom=data.atoms.find(a=>a.id===request.id);if(atom)reveal({x:atom.x,y:atom.y},request.zoom??1);});});
  let transitioning=$state(false);let canvas!:HTMLCanvasElement;let width=$state(1200),height=$state(700);let dragging=$state(false);let model=$state.raw<GraphModel>({nodes:[],links:[],hidden:0});let controller=$state<GraphController|null>(null);let reduced=$state(false);let hover=$state('');
  $effect(()=>controller?.setMotionEnabled(physicsEnabled));
- $effect(()=>controller?.sync($state.snapshot(data),$state.snapshot(prefs),providerVersion,preservePositions));
+ let presentationRevision=0;
+ $effect(()=>{controller?.sync($state.snapshot(data),$state.snapshot(prefs),providerVersion,preservePositions);presentationRevision++;schedule();});
  $effect(()=>controller?.view($state.snapshot(camera),width,height,lens,selected,paused,reduced));
  let visualFocus=$state('');let recent='';let recentAt=0;let focal:Point|undefined;let previewCamera=$state({x:0,y:0,zoom:1});
  $effect(()=>{model;selected;paused;physicsEnabled;(physicsEnabled?prefs.liveliness:0);schedule();});
@@ -108,15 +110,33 @@
  const pointers=new Map<number,Point>();let start:{x:number;y:number;worldX?:number;worldY?:number;dragOrigin?:Point;section?:string;node?:GraphNode;target?:GraphNode;panX:number;panY:number;moved?:boolean}|null=null;let moving:GraphNode|null=null;let pinch=0;let pinchStart:{distance:number;zoom:number}|null=null;let fromPinch=false;let longTimer:ReturnType<typeof setTimeout>;let holdStarted=0;let pendingDrag=false;let holdReady=false;let touchStart=false;let suppressReleaseClick=false;let panSample={x:0,y:0,time:0},panVelocity={x:0,y:0};
  function adopt(){rig.resize({width,height});}
  function schedule(){if(frame)return;frame=requestAnimationFrame(tick);}
+ type PreparedScene={model:GraphModel;gpu:GpuMapRenderer;revision:number;selected:string;hover:string;lens:string;selection:string[];palette:ReturnType<typeof readPalette>|null;width:number;height:number;radius:number;collapse:number;overview:number;left:number;right:number;top:number;bottom:number};
+ let prepared:PreparedScene|undefined;let lastCameraOnly=false;let sceneRadius=0;
+ function rememberScene(){
+  if(!gpu?.available||gpuFailed||transitioning||model.arranging){prepared=undefined;return;}
+  // Keep a guard band for panning and zooming out. Crossing it requests a fresh scene.
+  const z=camera.zoom,marginX=width*.35+sceneRadius*z+100,marginY=height*.35+sceneRadius*z+100;
+  prepared={model,gpu,revision:presentationRevision,selected,hover,lens,selection:lassoSelection,palette:paletteCache,width,height,radius:sceneRadius,collapse:collapseAmount(z),overview:overviewAmount(z),left:(-width/2-camera.x-marginX)/z,right:(width/2-camera.x+marginX)/z,top:(-height/2-camera.y-marginY)/z,bottom:(height/2-camera.y+marginY)/z};
+ }
+ function cameraOnly(){
+  const p=prepared,z=camera.zoom,padding=(p?.radius||0)+100/z;
+  return Boolean(p&&p.gpu===gpu&&gpu?.available&&!gpuFailed&&cameraMoving&&!paused&&!moving&&!lasso&&!holdReady&&!overlayDirty&&!transitioning&&!model.arranging&&!linkInteracting&&!activeLink&&!connectFrom&&p.model===model&&p.revision===presentationRevision&&p.selected===selected&&p.hover===hover&&p.lens===lens&&p.selection===lassoSelection&&p.palette===paletteCache&&p.width===width&&p.height===height&&p.collapse===collapseAmount(z)&&p.overview===overviewAmount(z)&&(-width/2-camera.x)/z-padding>=p.left&&(width/2-camera.x)/z+padding<=p.right&&(-height/2-camera.y)/z-padding>=p.top&&(height/2-camera.y)/z+padding<=p.bottom);
+ }
  const profileFrames=new URLSearchParams(location.search).get('profile')==='1';
- function tick(now=performance.now()){frame=0;if(!canvas)return;const started=profileFrames?performance.now():0;draw(now);if(profileFrames)canvas.dataset.renderMs=String(performance.now()-started);}
+ function tick(now=performance.now()){frame=0;if(!canvas)return;const measure=rig.moving||cameraMoving,started=performance.now();lastCameraOnly=false;draw(now);const duration=performance.now()-started;if(measure)cameraMetrics.record(now,duration,lastCameraOnly);else cameraMetrics.idle();if(profileFrames)canvas.dataset.renderMs=String(duration);}
    function draw(now:number){if(!rendererSettled)return;if(pendingGpu&&!pointers.size&&!rig.moving&&!paused){gpuHost.appendChild(pendingGpu.canvas);gpu=pendingGpu;pendingGpu=null;}const dt=Math.min(64,Math.max(1,now-lastFrame||16));lastFrame=now;const inputDrag=pendingDrag;if(pendingDrag&&moving){pendingDrag=false;controller?.drag(moving.id,moving.x,moving.y,dt);}if(moving&&controller?.advanceDrag(inputDrag?0:dt))schedule();
    const next=rig.moving?rig.step(dt):rig.value;
    if(frameStructure&&!model.arranging&&!paused&&!pointers.size){frameStructure=false;frameMap(true);}
    if(!sameCamera(camera,next)){const dz=Math.log(next.zoom/camera.zoom);if(Math.abs(dz)>.0001)motionSound('zoom',Math.min(1,Math.abs(dz)*1000/dt/2.5),Math.sign(dz));camera={x:next.x,y:next.y,zoom:next.zoom};cameraMoving=true;}
    controller?.setInteracting(pointers.size>0||rig.moving||linkInteracting);
   frames?.publish(rig.value,{width,height});
+  if(rig.moving&&cameraOnly()){
+   try{if(gpu!.moveCamera(rig.value)){lastCameraOnly=true;hitCache=null;canvas.dataset.cameraFrames=String(Number(canvas.dataset.cameraFrames||0)+1);if(rig.needsFrame)schedule();return;}}
+   catch(error){gpuFailed=true;console.warn('GPU camera unavailable; using Canvas',error);}
+  }
   paintScene(now,dt,rig.value,width,height);
+  rememberScene();
+  canvas.dataset.sceneFrames=String(Number(canvas.dataset.sceneFrames||0)+1);
  }
  // Read the reactive camera/viewport once. Thousands of culling, label and edge
  // operations below use plain frame-local numbers rather than component getters.
@@ -130,7 +150,8 @@
    * otherwise uploads a multi-megapixel canvas for twenty tiny shapes every frame.
    * This resolution stays fixed throughout gestures; WebGL retains full density. */
   const dpr=gpu?.available&&!gpuFailed?Math.min(devicePixelRatio,2):Math.max(1,Math.min(devicePixelRatio,2,Math.sqrt(500000/(width*height))));if(canvas.width!==Math.round(width*dpr)||canvas.height!==Math.round(height*dpr)){canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);}
-  const nodes=displayed;const visible=(n:{x:number;y:number})=>{const x=width/2+camera.x+n.x*camera.zoom,y=height/2+camera.y+n.y*camera.zoom;return x>-200&&x<width+200&&y>-100&&y<height+100;};
+  sceneRadius=painted.reduce((max,n)=>Math.max(max,n.radius*1.5),0);
+  const nodes=displayed;const visible=(n:{x:number;y:number})=>{const x=width/2+camera.x+n.x*camera.zoom,y=height/2+camera.y+n.y*camera.zoom;const pad=sceneRadius*camera.zoom+100;return x>-(width*.35+pad)&&x<width*1.35+pad&&y>-(height*.35+pad)&&y<height*1.35+pad;};
   const ordered=priorityNodes.filter(visible),attention=visualAttention(ordered,camera,{width,height},selected,now-recentAt<3000?recent:'',focal);visualFocus=attention.focus;for(const node of ordered)node.attention=attention.scores.get(node.id)??.4;
   const ambient=providers.hasTool('ambient-lens'),states=atomStates,selectedIds=new Set(lassoSelection);const branch=model.branch||[],inBranch=new Set(branch);
   const groups=visual.nodes.filter(n=>n.members&&n.opacity>.003),grouped=new Map(groups.flatMap(n=>n.members!.map(id=>[id,n] as const)));if(groups.length){for(const p of model.satellites||[])satelliteCache.set(p.id,p);}else satelliteCache.clear();for(const id of satelliteCache.keys())if(!grouped.has(id))satelliteCache.delete(id);
@@ -221,12 +242,12 @@
   }
   ctx.restore();};
   if(accelerated){const {text,show}=labelLayout.get(n.id)!;const labels:GpuLabel[]=[],rings:GpuRing[]=[];
-   if(show){for(const [i,title] of text.lines.entries())labels.push({text:title,x:0,y:text.top+i*text.lineHeight,size:text.size,color:palette.text,background:palette.background,alpha:muted?.28:1});if(text.caption)labels.push({text:text.caption,x:0,y:text.captionTop,size:text.captionSize,color:palette.muted,alpha:muted?.28:1});}
+   if(show){for(const [i,title] of text.lines.entries())labels.push({text:title,line:i,x:0,y:text.top+i*text.lineHeight,size:text.size,color:palette.text,background:palette.background,alpha:muted?.28:1});if(text.caption)labels.push({text:text.caption,caption:true,titleLines:text.lines.length,x:0,y:text.captionTop,size:text.captionSize,color:palette.muted,alpha:muted?.28:1});}
    const stateAlpha=(ambient?(muted?.3:1):n.state==='archived'?.35:n.state==='paused'?.6:1);
    if(n.id===hover&&n.id!==selected)rings.push({radius:n.radius+10,color:palette.text,width:1.6/camera.zoom,alpha:stateAlpha*.45,dashed:false});
    if(n.state==='now'||n.id===selected||(n.members||[n.id]).some(id=>selectedIds.has(id))||holdReady&&start?.node?.id===n.id)rings.push({radius:n.radius+8,color:n.id===selected?palette.text:palette.accent,width:1.5/camera.zoom,alpha:stateAlpha,dashed:n.state==='now'});
    const color=muted?palette.muted:n.color==='#b4ecc1'?palette.accent:n.color,ink=inkFor(color,palette.background),mustHave=n.id===selected||n.id===hover||moving?.id===n.id;
-   gpuNodes.push({id:n.id,x:n.x,y:n.y,radius:n.radius,shape:n.shape,style:n.style,color,ink,strokeWidth:palette.strong?2.6:inBranch.has(n.id)&&n.id!==selected?2.1:1.35,soft:mustHave||softIds.has(n.id),icon:n.icon,iconSize:n.members?24:22,iconVisible:mustHave||iconIds.has(n.id)&&iconLegible(n.radius,camera.zoom),pinned:Boolean(n.pinned&&prefs.pinning),pinVisible:Boolean(n.pinned&&prefs.pinning&&camera.zoom>.38),pinColor:palette.text,pinFill:palette.background,bodyAlpha:stateAlpha,alpha:opacity,labels,rings});
+   gpuNodes.push({id:n.id,x:n.x,y:n.y,radius:n.radius,shape:n.shape,style:n.style,color,ink,strokeWidth:palette.strong?2.6:inBranch.has(n.id)&&n.id!==selected?2.1:1.35,soft:mustHave||softIds.has(n.id),icon:n.icon,iconSize:n.members?24:22,iconVisible:mustHave||iconIds.has(n.id)&&iconLegible(n.radius,camera.zoom),iconEligible:mustHave||iconIds.has(n.id),forceIcon:mustHave,pinned:Boolean(n.pinned&&prefs.pinning),pinVisible:Boolean(n.pinned&&prefs.pinning&&camera.zoom>.38),pinColor:palette.text,pinFill:palette.background,bodyAlpha:stateAlpha,alpha:opacity,labels,rings});
   }else paintNode(ctx);
   }if(worldOverlay)ctx.restore();if(accelerated){try{if(!gpu!.paint(width,height,dpr,camera,gpuEdges,gpuNodes,gpuDots,gpuEdgeLabels))schedule();}catch(error){gpuFailed=true;console.warn('GPU renderer unavailable; using Canvas',error);schedule();}}
   if(lasso?.length){ctx.save();ctx.beginPath();ctx.moveTo(lasso[0].x,lasso[0].y);for(const p of lasso.slice(1))ctx.lineTo(p.x,p.y);ctx.closePath();ctx.fillStyle=palette.accent+'18';ctx.strokeStyle=palette.text;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.fill();ctx.stroke();ctx.restore();}if(!pointers.size&&!rig.moving&&!model.arranging){previews=contentPreviews(ambient?painted.filter(n=>lensFocus(n.state,lens)):painted,camera,width,height,selected,previewHeights,previews);previewCamera={...camera};}
