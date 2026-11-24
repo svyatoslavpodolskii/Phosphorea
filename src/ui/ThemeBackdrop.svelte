@@ -4,7 +4,7 @@
  import type {Camera} from '../graph/model';
  import type {Viewport} from '../graph/camera';
  import {BACKGROUND_TILE,backgroundLayers,backgroundTransform} from './theme-background';
- let {camera={x:0,y:0,zoom:1},viewport}:{camera?:Camera;viewport?:Viewport}=$props();
+ let {camera={x:0,y:0,zoom:1},viewport,paused=false}:{camera?:Camera;viewport?:Viewport;paused?:boolean}=$props();
  let theme=$state<Theme>(getAppliedTheme()),width=$state(1280),height=$state(800),reduced=$state(false),sleeping=$state(false);
  let root:HTMLDivElement;const canvases:HTMLCanvasElement[]=[];
  const view=$derived(viewport??{width,height}),mode=$derived(reduced?'static':theme.effects.mode??'static');
@@ -54,7 +54,7 @@
   return()=>{generation++;observer.disconnect();window.removeEventListener('phosphora-theme-change',update);media.removeEventListener('change',motion);document.removeEventListener('visibilitychange',visibility);planes=[];};
  });
 </script>
-<div class="theme-backdrop" class:sleeping bind:this={root} aria-hidden="true" data-pattern={theme.effects.pattern} data-mode={mode} style:opacity={theme.effects.strength}>
+<div class="theme-backdrop" class:sleeping={sleeping||paused} bind:this={root} aria-hidden="true" data-pattern={theme.effects.pattern} data-mode={mode} style:opacity={theme.effects.strength}>
  {#each [0,1,2] as index}<canvas bind:this={canvases[index]} class:glimmer={!reduced&&mode!=='static'&&theme.effects.pattern!=='none'} style:visibility={mode==='static'&&index>0?'hidden':'visible'} style:animation-delay={`${index*-2.7}s`}></canvas>{/each}
 </div>
 <style>

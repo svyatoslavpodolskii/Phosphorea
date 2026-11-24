@@ -47,3 +47,14 @@ test('blank paragraphs survive save and reload, and a fresh note does not inheri
  await focus(page,'Paragraph spacing');await expect(visual.locator('p')).toHaveCount(4);await visual.press('Control+End');await visual.press('Control+i');await page.keyboard.type(' italic');await expect(visual.locator('em')).toHaveText(' italic');await page.getByRole('button',{name:'\u0413\u043e\u0442\u043e\u0432\u043e',exact:true}).click();
  await expect(page.locator('.note-editor')).not.toBeVisible();await page.locator('canvas.map').press('n');await title.fill('Fresh');const icon=await page.locator('.draft-indicator svg').innerHTML();await visual.fill('Plain');await expect(visual.locator('em')).toHaveCount(0);await expect(page.locator('.draft-indicator svg')).toHaveJSProperty('innerHTML',icon);await page.setViewportSize({width:390,height:844});await page.screenshot({path:'artifacts/editor-quiet-save-mobile.png'});
 });
+
+for(const width of [360,1280])test(`rounded writing surfaces stay padded at ${width}px`,async({page})=>{
+ await page.setViewportSize({width,height:844});await page.goto('/');await expect(page.locator('canvas.map')).toBeVisible();await page.locator('canvas.map').press('n');
+ const visual=page.getByRole('textbox',{name:'Визуальный текст',exact:true});await visual.fill('A readable thought');
+ const geometry=()=>page.locator('.note-content').evaluate(el=>{const css=getComputedStyle(el);return{radius:parseFloat(css.borderTopLeftRadius),padding:parseFloat(css.paddingLeft),overflow:el.scrollWidth-el.clientWidth};});
+ expect(await geometry()).toMatchObject({overflow:0});expect((await geometry()).radius).toBeGreaterThanOrEqual(16);expect((await geometry()).padding).toBeGreaterThanOrEqual(12);
+ await page.getByRole('button',{name:'Markdown',exact:true}).click();expect((await geometry()).radius).toBeGreaterThanOrEqual(16);expect((await geometry()).padding).toBeGreaterThanOrEqual(12);
+ await expect(page.getByRole('textbox',{name:'Текст',exact:true})).toHaveValue('A readable thought');
+ await expect(page.locator('.note-editor')).toBeVisible();expect(await page.locator('.note-editor').evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThanOrEqual(1);
+ const toolbar=page.getByRole('toolbar',{name:'Форматирование текста'});await toolbar.getByRole('button',{name:'Таблица',exact:true}).scrollIntoViewIfNeeded();await expect(toolbar.getByRole('button',{name:'Таблица',exact:true})).toBeInViewport();
+});

@@ -15,7 +15,7 @@ for(const mobile of [false,true])test(`editor primary controls and draft cancell
  await expect(editor.getByRole('toolbar',{name:'Форматирование текста'})).toBeVisible();
  await editor.getByRole('textbox',{name:'Название',exact:true}).fill('Discard this session');
  await (await sourceText(page)).fill('Unsaved body');
- await expect(editor.getByRole('status')).toHaveText('Черновик сохранён на устройстве');
+ await expect(editor.locator('.draft-indicator button')).toHaveAccessibleName('Черновик сохранён на устройстве');
  await editor.getByRole('button',{name:'Отмена',exact:true}).click();
  await expect(editor).toBeHidden();
  await page.reload();

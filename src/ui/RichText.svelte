@@ -66,7 +66,7 @@
  .rich-text :global(img){max-width:100%;height:auto;border-radius:10px}
  .rich-text:focus-within{outline:none}
  .rich-text :global(.tiptap){outline:none;min-height:100%;overflow-wrap:anywhere;white-space:pre-wrap}
- .rich-text :global(.tiptap>p:first-child){margin-top:0}
+ .rich-text :global(.tiptap>:first-child){margin-top:0}
  .rich-text :global(.tiptap p){color:var(--theme-text);font-size:inherit;line-height:inherit;margin:.5em 0}
  .rich-text :global(.tiptap h2){font-size:1.5em;margin:.75em 0 .4em}
  .rich-text :global(.tiptap a),.rich-text :global([data-wiki-reference]){color:var(--theme-accent);text-decoration:underline;cursor:pointer}
@@ -85,6 +85,6 @@
  .rich-text :global([data-source-block] small){color:var(--theme-muted);font-size:11px}
  .rich-text :global([data-source-block] pre){margin:6px 0 0;padding:0}
  .rich-text :global([data-source-block] button){font-size:11px;padding:4px 8px;min-height:28px;color:var(--theme-muted);background:transparent;border:0}
- .rich-text :global([data-source-block] textarea){width:100%;min-height:80px;padding:4px;border:0;border-radius:0;font:inherit;font-family:monospace;background:transparent;color:var(--theme-text);resize:vertical;outline:none}
+ .rich-text :global([data-source-block] textarea){width:100%;min-height:80px;padding:10px;border:1px solid var(--theme-border);border-radius:10px;font:inherit;font-family:monospace;background:transparent;color:var(--theme-text);resize:vertical;outline:none}
  .rich-text :global([data-source-block] [hidden]){display:none}
 </style>
