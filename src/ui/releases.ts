@@ -1,6 +1,10 @@
 export interface Release {version:string;date:string;title:string;intro:string;changes:{title:string;body:string}[]}
 /** User-facing history. Add the newest entry first with every published version. */
 export const releases:Release[]=[{
+ version:'0.10.3',date:'2026-11-24',title:'Маленький секрет',
+ intro:'Ещё немного жизни в вашем пространстве.',
+ changes:[{title:'Значок с характером',body:'Задержите палец на значке поля, чтобы включить или остановить его вращение. Выбор сохраняется между запусками только на этом устройстве.'}]
+},{
  version:'0.10.2',date:'2026-11-24',title:'Пространство для текста',
  intro:'Мягкие поля, аккуратные инструменты и меньше лишней работы под открытыми окнами.',
  changes:[
