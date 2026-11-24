@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openSettings,closeSettings,importMap,focus} from './helpers';
 import type {Page} from '@playwright/test';
-async function settled(page:Page){if(!await page.locator('.scrim').count())return;await expect.poll(()=>page.locator('.scrim').last().evaluate(el=>getComputedStyle(el).opacity)).toBe('1');await expect.poll(()=>page.locator('.editor').last().evaluate(el=>getComputedStyle(el).opacity)).toBe('1');}
+async function settled(page:Page){if(!await page.locator('.scrim').count())return;await expect.poll(()=>page.locator('.scrim').last().evaluate(el=>getComputedStyle(el).opacity)).toBe('1');await expect.poll(()=>page.getByRole('dialog').last().evaluate(el=>getComputedStyle(el).opacity)).toBe('1');}
 import {makeAtom} from '../../src/core/model';
 
 test('release history appears once after an upgrade and remains available in settings',async({page})=>{

@@ -9,26 +9,32 @@ export interface PaintedLink extends Link{opacity:number;start?:Endpoint;end?:En
 /** Retained visual state. The simulation and saved coordinates never see this layer. */
 export class SemanticScene{
  private memo?:{model:GraphModel;collapse:number;value:{nodes:PaintedNode[];links:PaintedLink[];active:boolean}};
+ private parentModel?:GraphModel;
+ private parents=new Map<string,GraphNode>();
+ private clusters:GraphNode[]=[];
  private nodes=new Map<string,PaintedNode>();
  private links=new Map<string,PaintedLink>();
  private arrivals=new Map<string,number>();private arrivalsReady=false;
   advance(model:GraphModel,dt:number,reduced=false,dragging='',collapse=1){
+   if(this.parentModel!==model){this.parentModel=model;this.parents.clear();this.clusters=model.nodes.filter(n=>n.members?.length);for(const n of this.clusters)for(const id of n.members!)this.parents.set(id,n);}
+   // An ungrouped scene has no semantic blend to rebuild as the scale changes.
+   if(model.expanded&&!this.clusters.length)collapse=0;
    if(!dragging&&this.memo?.model===model&&this.memo.collapse===collapse)return this.memo.value;
    if(model.expanded){
     const initial=!this.arrivalsReady;this.arrivalsReady=true;const seen=new Set<string>();let arriving=false;
     const enter=(id:string)=>{seen.add(id);const previous=this.arrivals.get(id)??(initial?1:0);const opacity=reduced?1:previous+(1-previous)*(1-Math.exp(-Math.max(0,Math.min(64,dt))/65));const value=opacity>.997?1:opacity;this.arrivals.set(id,value);if(value<1)arriving=true;return value;};
     // Both representations are computed as one background transaction. Gesture frames
     // only interpolate a retained pair; zoom can never launch a new grouping job.
-    const parents=new Map<string,GraphNode>();for(const n of model.nodes)for(const id of n.members||[])parents.set(id,n);
-    const nodes:PaintedNode[]=model.nodes.filter(n=>n.members).map(n=>({...n,opacity:collapse*enter(n.id)}));
-    for(const n of model.expanded.nodes){const p=parents.get(n.id);const reveal=p?1-collapse:1;nodes.push({...n,x:p?p.x+(n.x-p.x)*(1-collapse*.22):n.x,y:p?p.y+(n.y-p.y)*(1-collapse*.22):n.y,opacity:reveal*enter(n.id)});}
+    const parents=this.parents;
+    const nodes:PaintedNode[]=[];for(const n of this.clusters){const opacity=collapse*enter(n.id);if(opacity>.001)nodes.push({...n,opacity});}
+    for(const n of model.expanded.nodes){const p=parents.get(n.id);const reveal=p?1-collapse:1;const arrival=enter(n.id);if(reveal*arrival<=.001)continue;nodes.push({...n,x:p?p.x+(n.x-p.x)*(1-collapse*.22):n.x,y:p?p.y+(n.y-p.y)*(1-collapse*.22):n.y,opacity:reveal*arrival});}
     const byId=new Map(nodes.map(n=>[n.id,n]));const links:PaintedLink[]=[];
     for(const [kind,source] of [['cluster',model],['detail',model.expanded]] as const)for(const l of source.links){const a=byId.get(l.from),b=byId.get(l.to);if(!a||!b)continue;const opacity=(kind==='cluster'?collapse:1-collapse)*Math.min(this.arrivals.get(a.id)??1,this.arrivals.get(b.id)??1);if(opacity>.001)links.push({...l,id:kind+':'+l.id,opacity,start:a,end:b});}
     for(const id of this.arrivals.keys())if(!seen.has(id))this.arrivals.delete(id);
     const value={nodes:nodes.filter(n=>n.opacity>.001),links,active:arriving};this.memo=!arriving&&!dragging?{model,collapse,value}:undefined;return value;
    }
    const initial=!this.nodes.size,blend=reduced?1:1-Math.exp(-Math.max(0,Math.min(64,dt))/65),targets=new Map(model.nodes.map(n=>[n.id,n]));
-   const parents=new Map<string,GraphNode>();for(const n of model.nodes)for(const id of n.members||[])parents.set(id,n);
+   const parents=this.parents;
    const previousParents=new Map<string,PaintedNode>();for(const n of this.nodes.values())for(const id of n.members||[])previousParents.set(id,n);
    // New children inherit the currently painted parent, including interrupted transitions.
    for(const target of model.nodes)if(!this.nodes.has(target.id)){

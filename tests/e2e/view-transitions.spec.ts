@@ -1,0 +1,20 @@
+import {test,expect} from '@playwright/test';
+import {importMap} from './helpers';
+import {makeAtom} from '../../src/core/model';
+test.use({reducedMotion:'no-preference'});
+for(const viewport of [{width:390,height:844},{width:1280,height:800}])test(`kanban enters and leaves sideways at ${viewport.width}px`,async({page})=>{
+ await page.setViewportSize(viewport);await page.goto('/');
+ await importMap(page,{atoms:[makeAtom({title:'Мои планы',pinned:true,content:'- [ ] #task Закончить рисунок'})],links:[]});
+ const scene=page.locator('.board-scene');
+ await page.getByRole('button',{name:'Канбан',exact:true}).click();
+ await expect(page.locator('.board-task')).toBeVisible();
+ await expect.poll(()=>scene.evaluate(el=>Math.round(el.getBoundingClientRect().x))).toBe(0);
+ await expect(page.locator('.map-scene')).toHaveAttribute('inert','');
+ const bounds=await scene.boundingBox();expect(bounds?.height).toBe(viewport.height);expect(bounds?.width).toBe(viewport.width);
+ expect(await page.locator('.kanban').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+ await page.screenshot({path:`artifacts/kanban-${viewport.width}.png`});
+ await page.getByRole('button',{name:'Поле',exact:true}).click();
+ await expect.poll(()=>scene.evaluate(el=>el.getBoundingClientRect().x)).toBeGreaterThan(5);
+ await expect(scene).toHaveCount(0);
+ await expect(page.locator('.map-scene')).not.toHaveClass(/field-hidden/);
+});

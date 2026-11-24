@@ -24,3 +24,12 @@ it('new atoms appear smoothly while semantic zoom still follows the camera direc
  expect(zoomed.nodes.find(n=>n.id==='a')?.opacity).toBeCloseTo(.4);expect(zoomed.nodes.find(n=>n.members)?.opacity).toBeCloseTo(.6);expect(zoomed.active).toBe(false);expect(zoomed.nodes.find(n=>n.id==='new')?.x).toBe(300);
  const reduced={...added,expanded:{...added.expanded,nodes:[...added.expanded.nodes,node('instant',400)]}};expect(scene.advance(reduced,16,true,'',0).nodes.find(n=>n.id==='instant')?.opacity).toBe(1);
 });
+
+it('does not reconstruct an ungrouped expanded scene during semantic zoom',()=>{
+ const scene=new SemanticScene(),model={...detailed,expanded:detailed};
+ const first=scene.advance(model,16,true,'',0);
+ for(const collapse of [.2,.6,1,0])expect(scene.advance(model,16,false,'',collapse)).toBe(first);
+ expect(first.nodes.map(n=>n.x)).toEqual([-100,100]);
+ const grouped={...collapsed,expanded:detailed};
+ expect(scene.advance(grouped,16,true,'',.6).nodes.find(n=>n.members)?.opacity).toBeCloseTo(.6);
+});

@@ -137,7 +137,9 @@ export class GpuMapRenderer {
     static async create(onchange: () => void = () => { }) {
         const value = new GpuMapRenderer(onchange);
         try {
-            await value.renderer.init({ width: 1, height: 1, antialias: true, backgroundAlpha: 0, clearBeforeRender: true, autoDensity: false, failIfMajorPerformanceCaveat: false });
+            await value.renderer.init({ width: 1, height: 1, // High-density canvases already supersample the field. Avoid an additional
+            // multisampled framebuffer on phones (up to four extra color samples).
+            antialias: devicePixelRatio < 1.5, backgroundAlpha: 0, clearBeforeRender: true, autoDensity: false, failIfMajorPerformanceCaveat: false });
             const gl = value.renderer.gl, info = gl.getExtension('WEBGL_debug_renderer_info');
             const device = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
             if (/swiftshader|llvmpipe|softpipe|software|microsoft basic render/i.test(device))
