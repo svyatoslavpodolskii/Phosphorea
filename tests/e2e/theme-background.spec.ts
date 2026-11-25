@@ -52,6 +52,11 @@ test('camera modes reuse bounded decoration nodes while panning and zooming',asy
  await page.getByRole('slider',{name:'Масштаб карты',exact:true}).press('ArrowRight');
  await expect.poll(()=>transforms(page)).not.toEqual(panTransforms);
  const matrices=await transforms(page);expect(new Set(matrices).size).toBe(1);
+ // Zoom anchor rebases must keep the existing pixel surfaces, not resize them.
+ await backdrop(page).evaluate(el=>{const w=globalThis as any;w.__backdropResizes=0;for(const canvas of el.querySelectorAll('canvas'))for(const key of ['width','height']){const descriptor=Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype,key)!;Object.defineProperty(canvas,key,{configurable:true,get(){return descriptor.get!.call(this);},set(value){w.__backdropResizes++;descriptor.set!.call(this,value);}});}});
+ await page.locator('.rotary').press('End');await expect.poll(async()=>Number(await page.locator('canvas.map').getAttribute('data-zoom'))).toBeGreaterThan(2);
+ await page.locator('.rotary').press('Home');await page.waitForTimeout(700);
+ expect(await page.evaluate(()=>(globalThis as any).__backdropResizes)).toBe(0);
  await setMode(page,'parallax');const parallax=await transforms(page);
  // Changing a saved theme may remount the backdrop. Only camera changes must reuse it.
  await backdrop(page).evaluate(el=>{(globalThis as any).__themePoints=[...el.querySelectorAll('canvas')];});

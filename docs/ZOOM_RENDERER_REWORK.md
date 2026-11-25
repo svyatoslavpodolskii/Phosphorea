@@ -96,3 +96,33 @@ Diagnostic export now includes a bounded local ring of the latest 120 camera
 frames: preparation time, RAF interval and retained/full counts. This captures the
 phone's own timing without note contents or automatic network reporting. Frame
 interval includes browser/GPU/compositing delays; preparation measures JS only.
+
+
+## 0.10.8: quality, stable surfaces and corrected timing
+
+The supplied NP1 report still shows serious user-visible stutter. Desktop
+improvements in 0.10.7 did not establish that the phone problem was solved.
+The previous RAF interval could also include an intentional pause in pointer
+delivery when the rig stopped requesting frames. Reset it when the queue empties
+and report actual RAF queue wait separately. The local bounded Long Animation
+Frame observer adds browser-side attribution without note data or full URLs.
+
+Bodies now use shared Canvas2D-rasterized, linearly filtered mipmapped textures
+rather than unsmoothed vector outlines. Cache ownership follows existing node
+eviction and byte accounting (including mipmaps). Zoom does not rebuild them.
+Curves retain their geometry and use fragment coverage for edge antialiasing.
+Background rebases retain canvas dimensions and patterns instead of discarding
+three backing stores. Rotary motion uses CSS transform; preview and control
+layout are isolated.
+
+Dense Firefox WebGL fixture: 117/120 retained frames, zero new textures during
+zoom, 909,600 buffer bytes versus 1,186,560 in 0.10.7; preparation median 0.72 ms,
+p95 1.30 ms in the first run. A repeat was 0.84/1.60 ms: do not treat small
+timing differences as a demonstrated phone FPS gain. 1000-note prep was
+1.46/2.22 ms. Both near and distant views were inspected.
+
+The Chromium CPU-throttled broad-zoom compositor fixture uses Canvas fallback
+on this machine. Removing background/UI improves median but long periodic gaps
+remain even without them. It is an investigation tool, not a phone benchmark or
+proof that GPU/compositor delay has been identified. Real NP1 verification is
+still needed; no claim of fixed 60 FPS is justified.

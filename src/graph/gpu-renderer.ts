@@ -1,8 +1,8 @@
 import {GpuRings} from './gpu-rings';
 import {GpuCurves} from './gpu-curves';
-import { Container, Graphics, GraphicsContext, FillGradient, Sprite, Texture, WebGLRenderer } from 'pixi.js';
+import { Container, Graphics, Sprite, Texture, WebGLRenderer } from 'pixi.js';
 import { measureText, labelSize } from './footprint';
-import { iconSprite, iconLegible } from './sprites';
+import { nodeShape, iconSprite, iconLegible } from './sprites';
 import type { Camera } from './model';
 export interface GpuEdge {
     id: string;
@@ -80,22 +80,16 @@ interface LabelEntry {
 interface NodeEntry {
     root: Container;
     parts: Container[];
-    body: Graphics;
-    flat: GraphicsContext;
-    soft: GraphicsContext;
+    body: Sprite;
+    bodyKey: string;
     pin: Graphics;
     icon: Sprite;
-    gradientKey: string;
     iconKey: string;
     signature: string;
     labels: LabelEntry[];
     labelLayer: Container;
     usedAt: number;
     node?: GpuNode;
-}
-interface GradientEntry {
-    fill: FillGradient;
-    refs: number;
 }
 interface IconEntry {
     texture: Texture;
@@ -126,7 +120,7 @@ export class GpuMapRenderer {
         labelLayer: Container;
         usedAt: number;
     }>();
-    private gradients = new Map<string, GradientEntry>();
+    private bodies = new Map<string, {texture: Texture; refs: number; bytes: number; size: number}>();
     private icons = new Map<string, IconEntry>();
     private nodes = new Map<string, NodeEntry>();
     private width = 0;
@@ -150,6 +144,8 @@ export class GpuMapRenderer {
             const device = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
             if (/swiftshader|llvmpipe|softpipe|software|microsoft basic render/i.test(device))
                 throw Error('Hardware WebGL unavailable');
+            value.canvas.dataset.device = device;
+            value.canvas.dataset.antialias = String(gl.getContextAttributes()?.antialias);
             value.stage.eventMode = 'none';
             for (const layer of value.nodeLayers) layer.sortableChildren = true;
             value.field.addChild(...value.nodeLayers);
@@ -184,20 +180,33 @@ export class GpuMapRenderer {
     private entry() {
         const parts = this.nodeLayers.map(layer => { const part = new Container(); layer.addChild(part); return part; });
         const [root, iconRoot, pinRoot, labelLayer] = parts;
-        const flat = new GraphicsContext(), soft = new GraphicsContext(), body = new Graphics({context: flat});
+        const body = new Sprite(); body.anchor.set(.5);
         const pin = new Graphics(), icon = new Sprite();
         icon.anchor.set(.5);
         pin.context.batchMode = 'batch';
         root.addChild(body); iconRoot.addChild(icon); pinRoot.addChild(pin);
-        return {root, parts, body, flat, soft, pin, icon, labelLayer, gradientKey: '', iconKey: '', signature: '', labels: [], usedAt: 0} as NodeEntry;
+        return {root, parts, body, bodyKey: '', pin, icon, labelLayer, iconKey: '', signature: '', labels: [], usedAt: 0} as NodeEntry;
     }
-    private releaseGradient(key: string) {
-        const known = this.gradients.get(key);
-        if (known && !--known.refs) {
-            known.fill.destroy();
-            this.gradients.delete(key);
-            this.textureBytes -= 128 * 128 * 4;
+    private releaseBody(key: string) {
+        const entry = this.bodies.get(key);
+        if (entry && !--entry.refs) { entry.texture.destroy(true); this.textureBytes -= entry.bytes; this.bodies.delete(key); }
+    }
+    private bodyTexture(n: GpuNode) {
+        const key = [n.radius,n.shape,n.style,n.color,n.ink,n.strokeWidth,n.soft].join('|');
+        let entry = this.bodies.get(key);
+        if (!entry) {
+            // Rasterize once in local coordinates. Zoom only samples the texture;
+            // mipmaps preserve subpixel outlines without multisampling the viewport.
+            const size = Math.ceil(n.radius * (n.shape === 'diamond' ? 2.4 : 2) + n.strokeWidth + 4);
+            const canvas = document.createElement('canvas'); canvas.width = canvas.height = Math.ceil(size * 3);
+            const ctx = canvas.getContext('2d')!; ctx.scale(canvas.width / size, canvas.height / size); ctx.translate(size/2,size/2);
+            if (n.soft) { const g=ctx.createRadialGradient(-n.radius*.3,-n.radius*.4,0,0,0,n.radius*1.5);g.addColorStop(0,n.color+'30');g.addColorStop(1,n.color+'08');ctx.fillStyle=g; }
+            else ctx.fillStyle=n.color+'18';
+            const path=nodeShape(n.shape,n.radius).path;ctx.fill(path);ctx.strokeStyle=n.ink;ctx.lineWidth=n.strokeWidth;if(n.style==='dashed')ctx.setLineDash([5,4]);ctx.stroke(path);
+            const texture=Texture.from(canvas);texture.source.autoGenerateMipmaps=true;texture.source.style.scaleMode='linear';
+            entry={texture,refs:0,bytes:Math.ceil(canvas.width*canvas.height*4*4/3),size};this.bodies.set(key,entry);this.textureBytes+=entry.bytes;this.built();
         }
+        entry.refs++;return {key,...entry};
     }
     private releaseIcon(key: string) {
         const known = this.icons.get(key);
@@ -206,20 +215,6 @@ export class GpuMapRenderer {
             this.icons.delete(key);
             this.textureBytes -= known.bytes;
         }
-    }
-    private gradient(color: string, radius: number) {
-        const key = color + '|' + radius;
-        let known = this.gradients.get(key);
-        if (!known) {
-            const fill = new FillGradient({ type: 'radial', textureSpace: 'global', textureSize: 128, center: { x: -radius * .3, y: -radius * .4 }, outerCenter: { x: 0, y: 0 }, innerRadius: 0, outerRadius: radius * 1.5, colorStops: [{ offset: 0, color: color + '30' }, { offset: 1, color: color + '08' }] });
-            fill.buildGradient();
-            known = { fill, refs: 0 };
-            this.gradients.set(key, known);
-            this.textureBytes += 128 * 128 * 4;
-            this.built();
-        }
-        known.refs++;
-        return { key, fill: known.fill };
     }
     private icon(n: GpuNode) {
         const key = [n.icon, n.ink, n.iconSize].join('|');
@@ -239,83 +234,15 @@ export class GpuMapRenderer {
         node.body.destroy();
         node.pin.destroy();
         for (const part of node.parts) part.destroy({ children: true });
-        node.flat.destroy();
-        node.soft.destroy();
-        this.releaseGradient(node.gradientKey);
+        this.releaseBody(node.bodyKey);
         this.releaseIcon(node.iconKey);
         for (const label of node.labels)
             label.texture.destroy(true);
-    }
-    private shape(context: GraphicsContext, n: GpuNode) {
-        if (n.shape === 'square')
-            context.roundRect(-n.radius, -n.radius, n.radius * 2, n.radius * 2, 10);
-        else if (n.shape === 'diamond')
-            context.poly([0, -n.radius * 1.2, n.radius * 1.2, 0, 0, n.radius * 1.2, -n.radius * 1.2, 0]);
-        else
-            context.circle(0, 0, n.radius);
-        return context;
-    }
-    private outline(context: GraphicsContext, n: GpuNode) {
-        if (n.style !== 'dashed') {
-            context.stroke({ color: n.ink, width: n.strokeWidth });
-            return;
-        }
-        const points: {
-            x: number;
-            y: number;
-        }[] = [];
-        if (n.shape === 'diamond') {
-            const r = n.radius * 1.2;
-            points.push({ x: 0, y: -r }, { x: r, y: 0 }, { x: 0, y: r }, { x: -r, y: 0 });
-        }
-        else if (n.shape === 'square') {
-            const r = n.radius, c = Math.min(10, r);
-            for (const [x, y, start] of [[r - c, -r + c, -Math.PI / 2], [r - c, r - c, 0], [-r + c, r - c, Math.PI / 2], [-r + c, -r + c, Math.PI]])
-                for (let i = 0; i <= 12; i++) {
-                    const angle = start + i * Math.PI / 24;
-                    points.push({ x: x + Math.cos(angle) * c, y: y + Math.sin(angle) * c });
-                }
-        }
-        else
-            for (let i = 0; i < 128; i++) {
-                const angle = i * Math.PI / 64;
-                points.push({ x: Math.cos(angle) * n.radius, y: Math.sin(angle) * n.radius });
-            }
-        context.beginPath();
-        let phase = 0;
-        for (let i = 0; i < points.length; i++) {
-            const a = points[i], b = points[(i + 1) % points.length], length = Math.hypot(b.x - a.x, b.y - a.y);
-            let distance = 0;
-            while (distance < length) {
-                const drawing = phase < 5, step = Math.min(length - distance, (drawing ? 5 : 9) - phase), start = distance / length, end = (distance + step) / length;
-                if (drawing) {
-                    context.moveTo(a.x + (b.x - a.x) * start, a.y + (b.y - a.y) * start);
-                    context.lineTo(a.x + (b.x - a.x) * end, a.y + (b.y - a.y) * end);
-                }
-                distance += step;
-                phase = (phase + step) % 9;
-            }
-        }
-        context.stroke({ color: n.ink, width: n.strokeWidth });
     }
     private body(entry: NodeEntry, n: GpuNode) {
         const signature = [n.radius, n.shape, n.style, n.color, n.ink, n.strokeWidth, n.pinned, n.pinColor, n.pinFill].join('|');
         let changed = false;
         if (entry.signature !== signature) {
-            const gradient = this.gradient(n.color, n.radius), flat = new GraphicsContext(), soft = new GraphicsContext();
-            flat.batchMode = soft.batchMode = 'batch';
-            this.shape(flat, n).fill({ color: n.color, alpha: 24 / 255 });
-            this.outline(flat, n);
-            this.shape(soft, n).fill(gradient.fill);
-            this.outline(soft, n);
-            const oldFlat = entry.flat, oldSoft = entry.soft, oldGradient = entry.gradientKey;
-            entry.flat = flat;
-            entry.soft = soft;
-            entry.body.context = n.soft ? soft : flat;
-            entry.gradientKey = gradient.key;
-            oldFlat.destroy();
-            oldSoft.destroy();
-            this.releaseGradient(oldGradient);
             entry.signature = signature;
             entry.pin.clear();
             if (n.pinned) {
@@ -327,11 +254,8 @@ export class GpuMapRenderer {
             entry.pin.rotation = .55;
             changed = true;
         }
-        const context = n.soft ? entry.soft : entry.flat;
-        if (entry.body.context !== context) {
-            entry.body.context = context;
-            changed = true;
-        }
+        const bodyKey=[n.radius,n.shape,n.style,n.color,n.ink,n.strokeWidth,n.soft].join('|');
+        if(entry.bodyKey!==bodyKey){const next=this.bodyTexture(n),old=entry.bodyKey;entry.body.texture=next.texture;entry.body.width=entry.body.height=next.size;entry.bodyKey=next.key;this.releaseBody(old);changed=true;}
         const iconKey = [n.icon, n.ink, n.iconSize].join('|');
         if (entry.iconKey !== iconKey) {
             const icon = this.icon(n), old = entry.iconKey;

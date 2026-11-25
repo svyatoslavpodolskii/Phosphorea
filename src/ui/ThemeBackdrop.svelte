@@ -9,10 +9,10 @@
  let theme=$state<Theme>(getAppliedTheme()),width=$state(1280),height=$state(800),reduced=$state(false),sleeping=$state(false);
  let root:HTMLDivElement;const canvases:HTMLCanvasElement[]=[];
  const view=$derived(viewport??{width,height}),mode=$derived(reduced?'static':theme.effects.mode??'static');
- type Plane={image:HTMLImageElement;base?:ReturnType<typeof backgroundTransform>;width:number;height:number};
+ type Plane={image:HTMLImageElement;pattern?:CanvasPattern;base?:ReturnType<typeof backgroundTransform>;width:number;height:number};
  let planes:Plane[]=[],generation=0;
  function rebuild(){
-  const version=++generation;planes=[];for(const canvas of canvases)canvas?.getContext('2d')?.clearRect(0,0,canvas.width,canvas.height);
+  const version=++generation;planes=[];for(const canvas of canvases){const ctx=canvas?.getContext('2d');if(ctx){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);}}
   if(theme.effects.pattern==='none'||!theme.effects.strength)return;
   const shape=decorationShape(theme);
   const layers=backgroundLayers(theme.effects.pattern,theme.effects.density),source=mode==='static'?[{points:layers.flatMap(layer=>layer.points)}]:layers;
@@ -34,8 +34,12 @@
    const padX=mode==='static'?0:w*.5,padY=mode==='static'?0:h*.5,planeW=w+padX*2,planeH=h+padY*2,left=-padX*ratio+dx,top=-padY*ratio+dy;
    if(!base||plane.width!==w||plane.height!==h||ratio<.75||ratio>1.4||left>-padX*.15||top>-padY*.15||left+planeW*ratio<w+padX*.15||top+planeH*ratio<h+padY*.15){
     // All three planes together stay below 48 MiB, including 4K desktops.
-    const resolution=Math.min(1,2048/planeW,2048/planeH);canvas.width=Math.ceil(planeW*resolution);canvas.height=Math.ceil(planeH*resolution);
-    const ctx=canvas.getContext('2d')!,pattern=ctx.createPattern(plane.image,'repeat');if(!pattern)continue;
+    const resolution=Math.min(1,2048/planeW,2048/planeH),pixelW=Math.ceil(planeW*resolution),pixelH=Math.ceil(planeH*resolution);
+    // Resizing even to the same dimensions discards the backing store. Keep it
+    // through zoom anchors instead of allocating three new large surfaces.
+    if(canvas.width!==pixelW||canvas.height!==pixelH){canvas.width=pixelW;canvas.height=pixelH;}
+    const ctx=canvas.getContext('2d')!,pattern=plane.pattern??(plane.pattern=ctx.createPattern(plane.image,'repeat')??undefined);if(!pattern)continue;
+    ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.setTransform(resolution,0,0,resolution,0,0);ctx.translate(padX+next.x,padY+next.y);ctx.scale(next.scale,next.scale);ctx.fillStyle=pattern;
     ctx.fillRect((-padX-next.x)/next.scale,(-padY-next.y)/next.scale,planeW/next.scale,planeH/next.scale);
     plane.base=next;plane.width=w;plane.height=h;ratio=1;dx=dy=0;
